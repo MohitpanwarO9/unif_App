@@ -1,0 +1,27 @@
+﻿# Environment files and secrets
+.env
+.env.*
+!.env.example
+**/secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.secret
+
+# Dependencies and generated builds
+node_modules/
+dist/
+target/
+.turbo/
+.vite/
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+
+app/server/node_modules/
+app/web/node_modules/

@@ -1,0 +1,199 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Provider {
+  GOOGLE_DRIVE
+  MEGA
+  ONEDRIVE
+  DROPBOX
+  S3_COMPATIBLE
+}
+
+enum AccountStatus {
+  PENDING
+  CONNECTED
+  NEEDS_REAUTH
+  ERROR
+  DISCONNECTED
+}
+
+enum FileStatus {
+  UPLOADING
+  VERIFYING
+  READY
+  INCOMPLETE
+  MISSING_PARTS
+  DELETING
+  DELETED
+  ERROR
+}
+
+enum ChunkStatus {
+  PENDING
+  UPLOADING
+  STORED
+  VERIFIED
+  DELETE_PENDING
+  DELETED
+  ERROR
+}
+
+enum UploadStatus {
+  CREATED
+  IN_PROGRESS
+  VERIFYING
+  COMMITTED
+  CLEANUP_PENDING
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id             String          @id @default(cuid())
+  displayName    String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  cloudAccounts  CloudAccount[]
+  files          FileEntry[]
+  folders        Folder[]
+  uploadSessions UploadSession[]
+  syncEvents     SyncEvent[]
+  manifests      ManifestSnapshot[]
+}
+
+model CloudAccount {
+  id                 String        @id @default(cuid())
+  userId             String
+  provider           Provider
+  displayLabel       String
+  providerAccountRef String?
+  status             AccountStatus @default(PENDING)
+  totalBytes         BigInt?
+  usedBytes          BigInt?
+  freeBytes          BigInt?
+  lastVerifiedAt     DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks             Chunk[]
+  credential         CloudAccountCredential?
+
+  @@index([userId, provider])
+}
+
+model CloudAccountCredential {
+  id               String       @id @default(cuid())
+  cloudAccountId   String       @unique
+  encryptedPayload String
+  iv               String
+  authTag          String
+  expiresAt        DateTime?
+  scopes           String[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  cloudAccount     CloudAccount @relation(fields: [cloudAccountId], references: [id], onDelete: Cascade)
+}
+
+model Folder {
+  id        String      @id @default(cuid())
+  userId    String
+  parentId  String?
+  name      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Folder?     @relation("FolderTree", fields: [parentId], references: [id])
+  children  Folder[]    @relation("FolderTree")
+  files     FileEntry[]
+
+  @@index([userId, parentId])
+}
+
+model FileEntry {
+  id              String     @id @default(cuid())
+  userId          String
+  folderId        String?
+  name            String
+  mimeType        String?
+  extension       String?
+  sizeBytes       BigInt
+  checksumSha256  String?
+  status          FileStatus @default(UPLOADING)
+  manifestVersion Int        @default(1)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder          Folder?    @relation(fields: [folderId], references: [id])
+  chunks          Chunk[]
+
+  @@index([userId, folderId, status])
+  @@index([userId, name])
+}
+
+model Chunk {
+  id              String       @id @default(cuid())
+  fileId          String
+  cloudAccountId  String
+  sequence        Int
+  sizeBytes       BigInt
+  checksumSha256  String?
+  remoteObjectId  String?
+  remotePath      String?
+  status          ChunkStatus  @default(PENDING)
+  createdAt       DateTime     @default(now())
+  verifiedAt      DateTime?
+  file            FileEntry    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  cloudAccount    CloudAccount @relation(fields: [cloudAccountId], references: [id])
+
+  @@unique([fileId, sequence])
+  @@index([cloudAccountId, status])
+}
+
+model UploadSession {
+  id            String       @id @default(cuid())
+  userId        String
+  fileId        String?
+  status        UploadStatus @default(CREATED)
+  totalBytes    BigInt
+  receivedBytes BigInt       @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model ManifestSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  version    Int
+  checksum   String
+  storageRef String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+}
+
+model SyncEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String
+  entityId   String
+  operation  String
+  version    Int      @default(1)
+  payload    Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}

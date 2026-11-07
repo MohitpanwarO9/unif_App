@@ -1,0 +1,4932 @@
+UNIFIED CLOUD MANAGER - UPLOAD ROUTING AUDIT
+Generated: 11/05/2026 14:48:36
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\server\src\index.ts ==========
+import { PassThrough } from 'node:stream';
+import { once } from 'node:events';
+import type { RemoteFile } from './providers/provider-interface.js';
+import type { GoogleCredentials, GoogleDriveAbout, GoogleDriveFile, GoogleDriveFilesResponse, StoredGoogleTokens } from './providers/google-drive.types.js';
+import { TokenVault } from './core/security/token-vault.js';
+import { MegaAuthService } from './providers/mega/mega-auth.service.js';
+import { MegaAdapter } from './providers/mega/mega.adapter.js';
+import { GoogleDriveAdapter } from './providers/google-drive.adapter.js';
+import { ProviderRegistry } from './providers/provider-registry.js';
+import {
+  prisma,
+  connectDatabase,
+  disconnectDatabase,
+} from './core/database/prisma.js';
+
+dotenv.config();
+------------------------------
+import { once } from 'node:events';
+import type { RemoteFile } from './providers/provider-interface.js';
+import type { GoogleCredentials, GoogleDriveAbout, GoogleDriveFile, GoogleDriveFilesResponse, StoredGoogleTokens } from './providers/google-drive.types.js';
+import { TokenVault } from './core/security/token-vault.js';
+import { MegaAuthService } from './providers/mega/mega-auth.service.js';
+import { MegaAdapter } from './providers/mega/mega.adapter.js';
+import { GoogleDriveAdapter } from './providers/google-drive.adapter.js';
+import { ProviderRegistry } from './providers/provider-registry.js';
+import {
+  prisma,
+  connectDatabase,
+  disconnectDatabase,
+} from './core/database/prisma.js';
+
+dotenv.config();
+dotenv.config({
+------------------------------
+  { parseAs: 'buffer' },
+  (_request, body, done) => done(null, body),
+);
+
+const providerRegistry = new ProviderRegistry();
+const megaSessions = new Map<string, import('megajs').Storage>();
+const megaAuthService = tokenVault ? new MegaAuthService(tokenVault) : null;
+
+type MegaUploadTransfer = {
+  accountId: string;
+  fileName: string;
+  totalBytes: number;
+  receivedBytes: number;
+  uploadedBytes: number;
+  paused: boolean;
+  cancelled: boolean;
+------------------------------
+  (_request, body, done) => done(null, body),
+);
+
+const providerRegistry = new ProviderRegistry();
+const megaSessions = new Map<string, import('megajs').Storage>();
+const megaAuthService = tokenVault ? new MegaAuthService(tokenVault) : null;
+
+type MegaUploadTransfer = {
+  accountId: string;
+  fileName: string;
+  totalBytes: number;
+  receivedBytes: number;
+  uploadedBytes: number;
+  paused: boolean;
+  cancelled: boolean;
+  completed: boolean;
+------------------------------
+
+const providerRegistry = new ProviderRegistry();
+const megaSessions = new Map<string, import('megajs').Storage>();
+const megaAuthService = tokenVault ? new MegaAuthService(tokenVault) : null;
+
+type MegaUploadTransfer = {
+  accountId: string;
+  fileName: string;
+  totalBytes: number;
+  receivedBytes: number;
+  uploadedBytes: number;
+  paused: boolean;
+  cancelled: boolean;
+  completed: boolean;
+  stream: PassThrough;
+  uploadPromise: Promise<RemoteFile>;
+------------------------------
+  uploadPromise: Promise<RemoteFile>;
+  file?: RemoteFile;
+  createdAt: number;
+};
+
+const megaUploadTransfers = new Map<string, MegaUploadTransfer>();
+const maxUploadChunkBytes = 8 * 1024 * 1024;
+
+app.addHook('onClose', async () => {
+  for (const transfer of megaUploadTransfers.values()) {
+    if (!transfer.completed) {
+      transfer.cancelled = true;
+      transfer.stream.destroy(new Error('Application is shutting down.'));
+    }
+  }
+  megaUploadTransfers.clear();
+------------------------------
+
+const megaUploadTransfers = new Map<string, MegaUploadTransfer>();
+const maxUploadChunkBytes = 8 * 1024 * 1024;
+
+app.addHook('onClose', async () => {
+  for (const transfer of megaUploadTransfers.values()) {
+    if (!transfer.completed) {
+      transfer.cancelled = true;
+      transfer.stream.destroy(new Error('Application is shutting down.'));
+    }
+  }
+  megaUploadTransfers.clear();
+  try {
+    // Do not call Storage.close() here: megajs v1 logs the account out,
+    // invalidating the persisted SID that must survive app restarts.
+    // keepalive is disabled for persisted sessions, so process shutdown
+------------------------------
+    if (!transfer.completed) {
+      transfer.cancelled = true;
+      transfer.stream.destroy(new Error('Application is shutting down.'));
+    }
+  }
+  megaUploadTransfers.clear();
+  try {
+    // Do not call Storage.close() here: megajs v1 logs the account out,
+    // invalidating the persisted SID that must survive app restarts.
+    // keepalive is disabled for persisted sessions, so process shutdown
+    // can release its resources without an explicit MEGA logout.
+    megaSessions.clear();
+    await disconnectDatabase();
+  } finally {
+    tokenVault?.destroy();
+  }
+------------------------------
+      transfer.stream.destroy(new Error('Application is shutting down.'));
+    }
+  }
+  megaUploadTransfers.clear();
+  try {
+    // Do not call Storage.close() here: megajs v1 logs the account out,
+    // invalidating the persisted SID that must survive app restarts.
+    // keepalive is disabled for persisted sessions, so process shutdown
+    // can release its resources without an explicit MEGA logout.
+    megaSessions.clear();
+    await disconnectDatabase();
+  } finally {
+    tokenVault?.destroy();
+  }
+});
+
+------------------------------
+  megaUploadTransfers.clear();
+  try {
+    // Do not call Storage.close() here: megajs v1 logs the account out,
+    // invalidating the persisted SID that must survive app restarts.
+    // keepalive is disabled for persisted sessions, so process shutdown
+    // can release its resources without an explicit MEGA logout.
+    megaSessions.clear();
+    await disconnectDatabase();
+  } finally {
+    tokenVault?.destroy();
+  }
+});
+
+await app.register(cors, {
+  origin: [
+    'http://localhost:5173',
+------------------------------
+  try {
+    // Do not call Storage.close() here: megajs v1 logs the account out,
+    // invalidating the persisted SID that must survive app restarts.
+    // keepalive is disabled for persisted sessions, so process shutdown
+    // can release its resources without an explicit MEGA logout.
+    megaSessions.clear();
+    await disconnectDatabase();
+  } finally {
+    tokenVault?.destroy();
+  }
+});
+
+await app.register(cors, {
+  origin: [
+    'http://localhost:5173',
+    'http://tauri.localhost',
+------------------------------
+  }
+
+  return localUser;
+}
+
+async function getMegaStorage(accountId: string) {
+  if (!tokenVault || !megaAuthService) {
+    throw new Error('MEGA secure session storage is unavailable.');
+  }
+
+  const cached = megaSessions.get(accountId);
+  if (cached) return cached;
+
+  const localUser = await getLocalUser();
+
+  const account = await prisma.cloudAccount.findFirst({
+------------------------------
+
+  return localUser;
+}
+
+async function getMegaStorage(accountId: string) {
+  if (!tokenVault || !megaAuthService) {
+    throw new Error('MEGA secure session storage is unavailable.');
+  }
+
+  const cached = megaSessions.get(accountId);
+  if (cached) return cached;
+
+  const localUser = await getLocalUser();
+
+  const account = await prisma.cloudAccount.findFirst({
+    where: {
+------------------------------
+  return localUser;
+}
+
+async function getMegaStorage(accountId: string) {
+  if (!tokenVault || !megaAuthService) {
+    throw new Error('MEGA secure session storage is unavailable.');
+  }
+
+  const cached = megaSessions.get(accountId);
+  if (cached) return cached;
+
+  const localUser = await getLocalUser();
+
+  const account = await prisma.cloudAccount.findFirst({
+    where: {
+      id: accountId,
+------------------------------
+async function getMegaStorage(accountId: string) {
+  if (!tokenVault || !megaAuthService) {
+    throw new Error('MEGA secure session storage is unavailable.');
+  }
+
+  const cached = megaSessions.get(accountId);
+  if (cached) return cached;
+
+  const localUser = await getLocalUser();
+
+  const account = await prisma.cloudAccount.findFirst({
+    where: {
+      id: accountId,
+      userId: localUser.id,
+      provider: 'MEGA',
+      status: 'CONNECTED',
+------------------------------
+
+  const account = await prisma.cloudAccount.findFirst({
+    where: {
+      id: accountId,
+      userId: localUser.id,
+      provider: 'MEGA',
+      status: 'CONNECTED',
+    },
+    include: {
+      credential: true,
+    },
+  });
+
+  if (!account || !account.credential) {
+    throw new Error('Connected MEGA account or saved session was not found.');
+  }
+------------------------------
+      credential: true,
+    },
+  });
+
+  if (!account || !account.credential) {
+    throw new Error('Connected MEGA account or saved session was not found.');
+  }
+
+  const storage = await megaAuthService.restore({
+    ciphertext: account.credential.encryptedPayload,
+    iv: account.credential.iv,
+    authTag: account.credential.authTag,
+  });
+
+  megaSessions.set(accountId, storage);
+  return storage;
+------------------------------
+
+  if (!account || !account.credential) {
+    throw new Error('Connected MEGA account or saved session was not found.');
+  }
+
+  const storage = await megaAuthService.restore({
+    ciphertext: account.credential.encryptedPayload,
+    iv: account.credential.iv,
+    authTag: account.credential.authTag,
+  });
+
+  megaSessions.set(accountId, storage);
+  return storage;
+}
+
+const megaAdapter = new MegaAdapter(getMegaStorage);
+------------------------------
+    ciphertext: account.credential.encryptedPayload,
+    iv: account.credential.iv,
+    authTag: account.credential.authTag,
+  });
+
+  megaSessions.set(accountId, storage);
+  return storage;
+}
+
+const megaAdapter = new MegaAdapter(getMegaStorage);
+
+function getMegaAdapter(accountId: string) {
+  if (!providerRegistry.hasAccount(accountId)) {
+    providerRegistry.register(accountId, megaAdapter);
+  }
+
+------------------------------
+
+  megaSessions.set(accountId, storage);
+  return storage;
+}
+
+const megaAdapter = new MegaAdapter(getMegaStorage);
+
+function getMegaAdapter(accountId: string) {
+  if (!providerRegistry.hasAccount(accountId)) {
+    providerRegistry.register(accountId, megaAdapter);
+  }
+
+  return providerRegistry.getAdapter(accountId, 'MEGA');
+}
+
+app.get('/health', async () => ({
+------------------------------
+  return storage;
+}
+
+const megaAdapter = new MegaAdapter(getMegaStorage);
+
+function getMegaAdapter(accountId: string) {
+  if (!providerRegistry.hasAccount(accountId)) {
+    providerRegistry.register(accountId, megaAdapter);
+  }
+
+  return providerRegistry.getAdapter(accountId, 'MEGA');
+}
+
+app.get('/health', async () => ({
+  status: 'ok',
+  service: 'unified-cloud-api',
+------------------------------
+
+const megaAdapter = new MegaAdapter(getMegaStorage);
+
+function getMegaAdapter(accountId: string) {
+  if (!providerRegistry.hasAccount(accountId)) {
+    providerRegistry.register(accountId, megaAdapter);
+  }
+
+  return providerRegistry.getAdapter(accountId, 'MEGA');
+}
+
+app.get('/health', async () => ({
+  status: 'ok',
+  service: 'unified-cloud-api',
+  version: '0.1.0',
+  apiProtocolVersion: 2,
+------------------------------
+function getMegaAdapter(accountId: string) {
+  if (!providerRegistry.hasAccount(accountId)) {
+    providerRegistry.register(accountId, megaAdapter);
+  }
+
+  return providerRegistry.getAdapter(accountId, 'MEGA');
+}
+
+app.get('/health', async () => ({
+  status: 'ok',
+  service: 'unified-cloud-api',
+  version: '0.1.0',
+  apiProtocolVersion: 2,
+  stage: 'database-connected',
+  database: 'connected',
+  encryption: tokenVault ? 'ready' : 'not-configured',
+------------------------------
+      message: 'Unable to load connected accounts.',
+    });
+  }
+});
+
+app.post('/auth/mega/connect', async (request, reply) => {
+  const body = request.body as {
+    email?: string;
+    password?: string;
+    secondFactorCode?: string;
+  } | null;
+
+  if (
+    !body ||
+    typeof body.email !== 'string' ||
+    typeof body.password !== 'string' ||
+------------------------------
+    !body.email.trim() ||
+    !body.password
+  ) {
+    return reply.code(400).send({
+      status: 'error',
+      message: 'MEGA email and password are required.',
+    });
+  }
+
+  if (!tokenVault) {
+    return reply.code(503).send({
+      status: 'error',
+      message: 'Secure credential storage is unavailable.',
+    });
+  }
+
+------------------------------
+    (typeof body.secondFactorCode !== 'string' ||
+      !/^\d{6,8}$/.test(body.secondFactorCode))
+  ) {
+    return reply.code(400).send({
+      status: 'error',
+      message: 'Invalid MEGA two-factor authentication code.',
+    });
+  }
+
+  let storage: import('megajs').Storage | undefined;
+  let retainStorage = false;
+
+  try {
+    const authService = new MegaAuthService(tokenVault);
+    const result = await authService.login(
+      body.email,
+------------------------------
+      status: 'error',
+      message: 'Invalid MEGA two-factor authentication code.',
+    });
+  }
+
+  let storage: import('megajs').Storage | undefined;
+  let retainStorage = false;
+
+  try {
+    const authService = new MegaAuthService(tokenVault);
+    const result = await authService.login(
+      body.email,
+      body.password,
+      body.secondFactorCode,
+    );
+
+------------------------------
+
+  let storage: import('megajs').Storage | undefined;
+  let retainStorage = false;
+
+  try {
+    const authService = new MegaAuthService(tokenVault);
+    const result = await authService.login(
+      body.email,
+      body.password,
+      body.secondFactorCode,
+    );
+
+    storage = result.storage;
+
+    const accountInfo = await storage.getAccountInfo();
+    const totalBytes = BigInt(Math.max(0, Math.floor(accountInfo.spaceTotal)));
+------------------------------
+    const localUser = await getLocalUser();
+
+    const existing = await prisma.cloudAccount.findFirst({
+      where: {
+        userId: localUser.id,
+        provider: 'MEGA',
+        providerAccountRef: result.email,
+      },
+      select: { id: true },
+    });
+
+    const account = await prisma.$transaction(async (tx) => {
+      const savedAccount = existing
+        ? await tx.cloudAccount.update({
+            where: { id: existing.id },
+            data: {
+------------------------------
+            },
+          })
+        : await tx.cloudAccount.create({
+            data: {
+              userId: localUser.id,
+              provider: 'MEGA',
+              displayLabel: result.displayName,
+              providerAccountRef: result.email,
+              status: 'CONNECTED',
+              totalBytes,
+              usedBytes,
+              freeBytes,
+              lastVerifiedAt: new Date(),
+            },
+          });
+
+------------------------------
+        create: {
+          cloudAccountId: savedAccount.id,
+          encryptedPayload: result.encryptedSession.ciphertext,
+          iv: result.encryptedSession.iv,
+          authTag: result.encryptedSession.authTag,
+          scopes: ['mega:session'],
+        },
+        update: {
+          encryptedPayload: result.encryptedSession.ciphertext,
+          iv: result.encryptedSession.iv,
+          authTag: result.encryptedSession.authTag,
+          scopes: ['mega:session'],
+          expiresAt: null,
+        },
+      });
+
+------------------------------
+        },
+        update: {
+          encryptedPayload: result.encryptedSession.ciphertext,
+          iv: result.encryptedSession.iv,
+          authTag: result.encryptedSession.authTag,
+          scopes: ['mega:session'],
+          expiresAt: null,
+        },
+      });
+
+      return savedAccount;
+    });
+
+    // A successful reconnect replaces the encrypted session in the database.
+    // Evict any previously cached Storage instance so subsequent requests
+    // restore the newly saved session instead of reusing an expired SID.
+------------------------------
+    });
+
+    // A successful reconnect replaces the encrypted session in the database.
+    // Evict any previously cached Storage instance so subsequent requests
+    // restore the newly saved session instead of reusing an expired SID.
+    const staleStorage = megaSessions.get(account.id);
+    if (staleStorage && staleStorage !== storage) {
+      megaSessions.delete(account.id);
+      // The previous cached session is obsolete after a fresh login.
+      await staleStorage.close().catch(() => undefined);
+    }
+
+    if (storage) {
+      // Keep the freshly authenticated instance alive for this process.
+      // Closing it here would log out the newly persisted MEGA SID.
+      megaSessions.set(account.id, storage);
+------------------------------
+    // A successful reconnect replaces the encrypted session in the database.
+    // Evict any previously cached Storage instance so subsequent requests
+    // restore the newly saved session instead of reusing an expired SID.
+    const staleStorage = megaSessions.get(account.id);
+    if (staleStorage && staleStorage !== storage) {
+      megaSessions.delete(account.id);
+      // The previous cached session is obsolete after a fresh login.
+      await staleStorage.close().catch(() => undefined);
+    }
+
+    if (storage) {
+      // Keep the freshly authenticated instance alive for this process.
+      // Closing it here would log out the newly persisted MEGA SID.
+      megaSessions.set(account.id, storage);
+      retainStorage = true;
+    }
+------------------------------
+      await staleStorage.close().catch(() => undefined);
+    }
+
+    if (storage) {
+      // Keep the freshly authenticated instance alive for this process.
+      // Closing it here would log out the newly persisted MEGA SID.
+      megaSessions.set(account.id, storage);
+      retainStorage = true;
+    }
+
+    return reply.code(existing ? 200 : 201).send({
+      status: 'success',
+      account: {
+        id: account.id,
+        provider: account.provider,
+        displayLabel: account.displayLabel,
+------------------------------
+    }
+
+    if (storage) {
+      // Keep the freshly authenticated instance alive for this process.
+      // Closing it here would log out the newly persisted MEGA SID.
+      megaSessions.set(account.id, storage);
+      retainStorage = true;
+    }
+
+    return reply.code(existing ? 200 : 201).send({
+      status: 'success',
+      account: {
+        id: account.id,
+        provider: account.provider,
+        displayLabel: account.displayLabel,
+        status: account.status,
+------------------------------
+        usedBytes: usedBytes.toString(),
+        freeBytes: freeBytes.toString(),
+      },
+    });
+  } catch {
+    request.log.error('MEGA account connection failed. Sensitive details omitted.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'MEGA connection failed. Check your credentials and two-factor code.',
+    });
+  } finally {
+    if (storage && !retainStorage) {
+      await storage.close().catch(() => undefined);
+    }
+  }
+});
+------------------------------
+    });
+  } catch {
+    request.log.error('MEGA account connection failed. Sensitive details omitted.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'MEGA connection failed. Check your credentials and two-factor code.',
+    });
+  } finally {
+    if (storage && !retainStorage) {
+      await storage.close().catch(() => undefined);
+    }
+  }
+});
+const pendingStates = new Map<string, number>();
+
+if (oauthEnabled && credentialsPath && tokenVault) {
+------------------------------
+      const localUser = await getLocalUser();
+
+      const existingAccount = await prisma.cloudAccount.findFirst({
+        where: {
+          userId: localUser.id,
+          provider: 'GOOGLE_DRIVE',
+          providerAccountRef,
+        },
+        include: { credential: true },
+      });
+
+      let previousRefreshToken: string | null = null;
+
+      if (existingAccount?.credential) {
+        const previousPayload = JSON.parse(
+          tokenVault.decrypt({
+------------------------------
+              },
+            })
+          : await tx.cloudAccount.create({
+              data: {
+                userId: localUser.id,
+                provider: 'GOOGLE_DRIVE',
+                providerAccountRef,
+                displayLabel,
+                status: 'CONNECTED',
+                lastVerifiedAt: new Date(),
+              },
+            });
+
+        await tx.cloudAccountCredential.upsert({
+          where: { cloudAccountId: account.id },
+          create: {
+------------------------------
+
+    const account = await prisma.cloudAccount.findFirst({
+      where: {
+        id: accountId,
+        userId: localUser.id,
+        provider: 'GOOGLE_DRIVE',
+        status: 'CONNECTED',
+      },
+      include: { credential: true },
+    });
+
+    if (!account?.credential) {
+      return null;
+    }
+
+    const storedTokens = JSON.parse(
+------------------------------
+
+  function getGoogleDriveAdapter(accountId: string) {
+    if (!providerRegistry.hasAccount(accountId)) {
+      providerRegistry.register(accountId, googleDriveAdapter);
+    }
+    return providerRegistry.getAdapter(accountId, 'GOOGLE_DRIVE');
+  }
+
+  // Select a connected destination for a new file at the unified root.
+  // This is deliberately single-account placement: the current file browser
+  // stores provider-native IDs and does not yet reconstruct distributed files.
+  app.post('/storage/allocate', async (request, reply) => {
+    const body = request.body as { totalBytes?: number } | null;
+    if (!body || !Number.isSafeInteger(body.totalBytes) || (body.totalBytes as number) < 1) {
+      return reply.code(400).send({
+        status: 'error',
+------------------------------
+  }
+
+  // Select a connected destination for a new file at the unified root.
+  // This is deliberately single-account placement: the current file browser
+  // stores provider-native IDs and does not yet reconstruct distributed files.
+  app.post('/storage/allocate', async (request, reply) => {
+    const body = request.body as { totalBytes?: number } | null;
+    if (!body || !Number.isSafeInteger(body.totalBytes) || (body.totalBytes as number) < 1) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'A positive safe-integer totalBytes value is required.',
+      });
+    }
+
+    const requestedBytes = BigInt(body.totalBytes as number);
+
+------------------------------
+      const localUser = await getLocalUser();
+      const connected = await prisma.cloudAccount.findMany({
+        where: {
+          userId: localUser.id,
+          status: 'CONNECTED',
+          provider: { in: ['GOOGLE_DRIVE', 'MEGA'] },
+        },
+        select: { id: true, provider: true, displayLabel: true },
+      });
+
+      const quotaResults = await Promise.all(connected.map(async (account) => {
+        try {
+          const quota = account.provider === 'GOOGLE_DRIVE'
+            ? await getGoogleDriveAdapter(account.id).getQuota(account.id)
+            : await getMegaAdapter(account.id).getQuota(account.id);
+          const freeBytes = BigInt(quota.freeBytes);
+------------------------------
+        select: { id: true, provider: true, displayLabel: true },
+      });
+
+      const quotaResults = await Promise.all(connected.map(async (account) => {
+        try {
+          const quota = account.provider === 'GOOGLE_DRIVE'
+            ? await getGoogleDriveAdapter(account.id).getQuota(account.id)
+            : await getMegaAdapter(account.id).getQuota(account.id);
+          const freeBytes = BigInt(quota.freeBytes);
+          return { account, freeBytes, totalBytes: BigInt(quota.totalBytes), available: true as const };
+        } catch {
+          return { account, freeBytes: 0n, totalBytes: 0n, available: false as const };
+        }
+      }));
+
+      const available = quotaResults.filter((item) => item.available && item.freeBytes > 0n);
+------------------------------
+
+      const quotaResults = await Promise.all(connected.map(async (account) => {
+        try {
+          const quota = account.provider === 'GOOGLE_DRIVE'
+            ? await getGoogleDriveAdapter(account.id).getQuota(account.id)
+            : await getMegaAdapter(account.id).getQuota(account.id);
+          const freeBytes = BigInt(quota.freeBytes);
+          return { account, freeBytes, totalBytes: BigInt(quota.totalBytes), available: true as const };
+        } catch {
+          return { account, freeBytes: 0n, totalBytes: 0n, available: false as const };
+        }
+      }));
+
+      const available = quotaResults.filter((item) => item.available && item.freeBytes > 0n);
+      const combinedFreeBytes = available.reduce((sum, item) => sum + item.freeBytes, 0n);
+      const candidates = available
+------------------------------
+      mimeType: 'application/pdf',
+      extension: '.pdf',
+    },
+  };
+
+  app.post('/drive/transfers/download/init', async (request, reply) => {
+    const body = request.body as { accountId?: string; fileId?: string } | null;
+
+    if (
+      !body ||
+      typeof body.accountId !== 'string' ||
+      typeof body.fileId !== 'string' ||
+      !/^[A-Za-z0-9_-]{5,200}$/.test(body.fileId)
+    ) {
+      return reply.code(400).send({
+        status: 'error',
+------------------------------
+        message: 'Could not initialize Google Drive download.',
+      });
+    }
+  });
+
+  app.get('/drive/transfers/download/:transferId/chunk', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const query = request.query as { startByte?: string };
+    const transfer = params.transferId
+      ? downloadTransfers.get(params.transferId)
+      : undefined;
+    const startByte = Number(query.startByte);
+
+    if (!transfer) {
+      return reply.code(404).send({ status: 'error', message: 'Download session was not found.' });
+    }
+------------------------------
+        message: 'Unable to retrieve the next download chunk.',
+      });
+    }
+  });
+
+  app.delete('/drive/transfers/download/:transferId', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const transfer = params.transferId
+      ? downloadTransfers.get(params.transferId)
+      : undefined;
+    if (!transfer) {
+      return reply.code(404).send({ status: 'error', message: 'Download session was not found.' });
+    }
+    transfer.exportBuffer?.fill(0);
+    downloadTransfers.delete(params.transferId!);
+    return reply.send({ status: 'success' });
+------------------------------
+      file: transfer.file,
+    };
+  }
+
+  // Start a Google Drive resumable upload session.
+  app.post('/drive/transfers/upload/init', async (request, reply) => {
+    const body = request.body as {
+      accountId?: string;
+      fileName?: string;
+      mimeType?: string;
+      totalBytes?: number;
+      parentId?: string;
+    } | null;
+
+    if (
+      !body ||
+------------------------------
+    }
+  });
+
+  // Send one raw binary chunk to Google Drive and record confirmed progress.
+  // Legacy Base64 JSON chunks remain accepted for compatibility with older clients.
+  app.put('/drive/transfers/:transferId/chunk', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const transferId = params.transferId;
+    const transfer = transferId ? uploadTransfers.get(transferId) : undefined;
+
+    if (!transfer || transfer.cancelled) {
+      return reply.code(404).send({
+        status: 'error',
+        message: 'Upload transfer was not found.',
+      });
+    }
+------------------------------
+      });
+    }
+  });
+
+  // Read the current confirmed upload progress.
+  app.get('/drive/transfers/:transferId', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const transferId = params.transferId;
+    const transfer = transferId ? uploadTransfers.get(transferId) : undefined;
+
+    if (!transfer) {
+      return reply.code(404).send({
+        status: 'error',
+        message: 'Transfer was not found.',
+      });
+    }
+------------------------------
+      transfer: transferSnapshot(transferId!, transfer),
+    });
+  });
+
+  // Pause means no further chunks will be accepted until resumed.
+  app.post('/drive/transfers/:transferId/pause', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const transfer = params.transferId
+      ? uploadTransfers.get(params.transferId)
+      : undefined;
+
+    if (!transfer || transfer.completed || transfer.cancelled) {
+      return reply.code(404).send({
+        status: 'error',
+        message: 'Active transfer was not found.',
+      });
+------------------------------
+      transfer: transferSnapshot(params.transferId!, transfer),
+    });
+  });
+
+  // Resume the session without restarting already confirmed chunks.
+  app.post('/drive/transfers/:transferId/resume', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const transfer = params.transferId
+      ? uploadTransfers.get(params.transferId)
+      : undefined;
+
+    if (!transfer || transfer.completed || transfer.cancelled) {
+      return reply.code(404).send({
+        status: 'error',
+        message: 'Active transfer was not found.',
+      });
+------------------------------
+      transfer: transferSnapshot(params.transferId!, transfer),
+    });
+  });
+
+  // Cancel the Google resumable upload session.
+  app.post('/drive/transfers/:transferId/cancel', async (request, reply) => {
+    const params = request.params as { transferId?: string };
+    const transferId = params.transferId;
+    const transfer = transferId ? uploadTransfers.get(transferId) : undefined;
+
+    if (!transfer) {
+      return reply.code(404).send({
+        status: 'error',
+        message: 'Transfer was not found.',
+      });
+    }
+------------------------------
+  app.log.info(
+    'Google OAuth disabled because OAuth configuration or encryption key is unavailable.'
+  );
+}
+
+app.get('/mega/files', async (request, reply) => {
+  const query = request.query as {
+    accountId?: string;
+    parentId?: string;
+    pageToken?: string;
+    pageSize?: string;
+  };
+
+  if (!query.accountId) {
+    return reply.code(400).send({
+      status: 'error',
+------------------------------
+  }
+
+  const pageSize = Math.min(Math.max(Number(query.pageSize) || 100, 1), 1000);
+
+  try {
+    const adapter = getMegaAdapter(query.accountId);
+    const result = await adapter.listFiles(query.accountId, {
+      parentId: query.parentId,
+      pageToken: query.pageToken,
+      pageSize,
+    });
+
+    return reply.send({
+      status: 'success',
+      accountId: query.accountId,
+      files: result.files.map((file) => ({
+------------------------------
+      })),
+      nextPageToken: result.nextPageToken ?? null,
+    });
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA file listing failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA files.',
+      diagnosticCode,
+    });
+  }
+});
+------------------------------
+    });
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA file listing failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA files.',
+      diagnosticCode,
+    });
+  }
+});
+
+app.get('/mega/quota', async (request, reply) => {
+------------------------------
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA file listing failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA files.',
+      diagnosticCode,
+    });
+  }
+});
+
+app.get('/mega/quota', async (request, reply) => {
+  const query = request.query as { accountId?: string };
+------------------------------
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA file listing failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA files.',
+      diagnosticCode,
+    });
+  }
+});
+
+app.get('/mega/quota', async (request, reply) => {
+  const query = request.query as { accountId?: string };
+
+  if (!query.accountId) {
+    return reply.code(400).send({
+------------------------------
+      diagnosticCode,
+    });
+  }
+});
+
+app.get('/mega/quota', async (request, reply) => {
+  const query = request.query as { accountId?: string };
+
+  if (!query.accountId) {
+    return reply.code(400).send({
+      status: 'error',
+      message: 'accountId is required.',
+    });
+  }
+
+  try {
+------------------------------
+      message: 'accountId is required.',
+    });
+  }
+
+  try {
+    const adapter = getMegaAdapter(query.accountId);
+    const quota = await adapter.getQuota(query.accountId);
+
+    return reply.send({
+      status: 'success',
+      accountId: query.accountId,
+      quota,
+    });
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+------------------------------
+      accountId: query.accountId,
+      quota,
+    });
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA quota lookup failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA storage quota.',
+      diagnosticCode,
+    });
+  }
+});
+------------------------------
+    });
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA quota lookup failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA storage quota.',
+      diagnosticCode,
+    });
+  }
+});
+
+app.post('/mega/folders', async (request, reply) => {
+------------------------------
+  } catch (error) {
+    const rawCode = error instanceof Error ? error.message : '';
+    const diagnosticCode = /^MEGA_SESSION_RESTORE_FAILED:(decrypt|parse|validate|storage_init|storage_ready|storage_reload)(?::(SESSION_EXPIRED|RATE_LIMIT|TEMPORARY_API_ERROR|ACCOUNT_BLOCKED|QUOTA_EXCEEDED|NETWORK_ERROR|UNKNOWN_ERROR))?$/.test(rawCode)
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA quota lookup failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA storage quota.',
+      diagnosticCode,
+    });
+  }
+});
+
+app.post('/mega/folders', async (request, reply) => {
+  const body = request.body as {
+------------------------------
+      ? rawCode
+      : 'MEGA_OPERATION_FAILED';
+    request.log.error({ diagnosticCode }, 'MEGA quota lookup failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to load MEGA storage quota.',
+      diagnosticCode,
+    });
+  }
+});
+
+app.post('/mega/folders', async (request, reply) => {
+  const body = request.body as {
+    accountId?: string;
+    name?: string;
+    parentId?: string;
+------------------------------
+      diagnosticCode,
+    });
+  }
+});
+
+app.post('/mega/folders', async (request, reply) => {
+  const body = request.body as {
+    accountId?: string;
+    name?: string;
+    parentId?: string;
+  } | null;
+
+  if (
+    !body ||
+    typeof body.accountId !== 'string' ||
+    typeof body.name !== 'string'
+------------------------------
+      message: 'Invalid parent folder ID.',
+    });
+  }
+
+  try {
+    const adapter = getMegaAdapter(body.accountId);
+    const folder = await adapter.createFolder(body.accountId, {
+      name,
+      parentId,
+    });
+
+    return reply.code(201).send({
+      status: 'success',
+      folder: {
+        id: folder.remoteObjectId,
+        name: folder.name,
+------------------------------
+        isFolder: folder.isFolder,
+        parents: folder.parentId ? [folder.parentId] : [],
+      },
+    });
+  } catch {
+    request.log.error('MEGA folder creation failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to create MEGA folder.',
+    });
+  }
+});
+
+app.delete('/mega/files/:fileId', async (request, reply) => {
+  const params = request.params as { fileId?: string };
+  const query = request.query as { accountId?: string };
+------------------------------
+    });
+  } catch {
+    request.log.error('MEGA folder creation failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to create MEGA folder.',
+    });
+  }
+});
+
+app.delete('/mega/files/:fileId', async (request, reply) => {
+  const params = request.params as { fileId?: string };
+  const query = request.query as { accountId?: string };
+
+  if (
+    !query.accountId ||
+------------------------------
+      message: 'Unable to create MEGA folder.',
+    });
+  }
+});
+
+app.delete('/mega/files/:fileId', async (request, reply) => {
+  const params = request.params as { fileId?: string };
+  const query = request.query as { accountId?: string };
+
+  if (
+    !query.accountId ||
+    !params.fileId ||
+    !/^[A-Za-z0-9_-]{1,200}$/.test(params.fileId)
+  ) {
+    return reply.code(400).send({
+      status: 'error',
+------------------------------
+      message: 'Valid accountId and fileId are required.',
+    });
+  }
+
+  try {
+    const adapter = getMegaAdapter(query.accountId);
+    await adapter.delete(query.accountId, params.fileId);
+
+    return reply.send({
+      status: 'success',
+      fileId: params.fileId,
+    });
+  } catch {
+    request.log.error('MEGA file deletion failed.');
+    return reply.code(502).send({
+      status: 'error',
+------------------------------
+    return reply.send({
+      status: 'success',
+      fileId: params.fileId,
+    });
+  } catch {
+    request.log.error('MEGA file deletion failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to delete MEGA file.',
+    });
+  }
+});
+
+// MEGA preview and chunked download sessions.
+type MegaDownloadTransfer = {
+  accountId: string;
+------------------------------
+    });
+  } catch {
+    request.log.error('MEGA file deletion failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to delete MEGA file.',
+    });
+  }
+});
+
+// MEGA preview and chunked download sessions.
+type MegaDownloadTransfer = {
+  accountId: string;
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+------------------------------
+      message: 'Unable to delete MEGA file.',
+    });
+  }
+});
+
+// MEGA preview and chunked download sessions.
+type MegaDownloadTransfer = {
+  accountId: string;
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  totalBytes: number;
+  createdAt: number;
+};
+
+const megaDownloadTransfers = new Map<string, MegaDownloadTransfer>();
+------------------------------
+    });
+  }
+});
+
+// MEGA preview and chunked download sessions.
+type MegaDownloadTransfer = {
+  accountId: string;
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  totalBytes: number;
+  createdAt: number;
+};
+
+const megaDownloadTransfers = new Map<string, MegaDownloadTransfer>();
+const maxMegaPreviewBytes = 50 * 1024 * 1024;
+------------------------------
+  mimeType: string;
+  totalBytes: number;
+  createdAt: number;
+};
+
+const megaDownloadTransfers = new Map<string, MegaDownloadTransfer>();
+const maxMegaPreviewBytes = 50 * 1024 * 1024;
+const maxMegaDownloadChunkBytes = 8 * 1024 * 1024;
+
+function getMegaMimeType(fileName: string): string {
+  const extension = fileName.toLowerCase().split('.').pop() ?? '';
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+------------------------------
+  totalBytes: number;
+  createdAt: number;
+};
+
+const megaDownloadTransfers = new Map<string, MegaDownloadTransfer>();
+const maxMegaPreviewBytes = 50 * 1024 * 1024;
+const maxMegaDownloadChunkBytes = 8 * 1024 * 1024;
+
+function getMegaMimeType(fileName: string): string {
+  const extension = fileName.toLowerCase().split('.').pop() ?? '';
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+    xml: 'application/xml',
+------------------------------
+  createdAt: number;
+};
+
+const megaDownloadTransfers = new Map<string, MegaDownloadTransfer>();
+const maxMegaPreviewBytes = 50 * 1024 * 1024;
+const maxMegaDownloadChunkBytes = 8 * 1024 * 1024;
+
+function getMegaMimeType(fileName: string): string {
+  const extension = fileName.toLowerCase().split('.').pop() ?? '';
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+    xml: 'application/xml',
+    html: 'text/html',
+------------------------------
+
+const megaDownloadTransfers = new Map<string, MegaDownloadTransfer>();
+const maxMegaPreviewBytes = 50 * 1024 * 1024;
+const maxMegaDownloadChunkBytes = 8 * 1024 * 1024;
+
+function getMegaMimeType(fileName: string): string {
+  const extension = fileName.toLowerCase().split('.').pop() ?? '';
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    json: 'application/json',
+    xml: 'application/xml',
+    html: 'text/html',
+    htm: 'text/html',
+    css: 'text/css',
+------------------------------
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  return mimeTypes[extension] ?? 'application/octet-stream';
+}
+
+async function collectMegaDownload(
+  accountId: string,
+  fileId: string,
+  startByte: number,
+  endByte: number,
+  expectedBytes: number,
+): Promise<Buffer> {
+  const adapter = getMegaAdapter(accountId);
+  const stream = await adapter.download(accountId, fileId, { startByte, endByte });
+  const parts: Buffer[] = [];
+  let receivedBytes = 0;
+------------------------------
+  fileId: string,
+  startByte: number,
+  endByte: number,
+  expectedBytes: number,
+): Promise<Buffer> {
+  const adapter = getMegaAdapter(accountId);
+  const stream = await adapter.download(accountId, fileId, { startByte, endByte });
+  const parts: Buffer[] = [];
+  let receivedBytes = 0;
+
+  for await (const part of stream) {
+    const chunk = Buffer.from(part);
+    receivedBytes += chunk.length;
+    if (receivedBytes > expectedBytes) {
+      chunk.fill(0);
+      for (const existing of parts) existing.fill(0);
+------------------------------
+    const chunk = Buffer.from(part);
+    receivedBytes += chunk.length;
+    if (receivedBytes > expectedBytes) {
+      chunk.fill(0);
+      for (const existing of parts) existing.fill(0);
+      throw new Error('MEGA returned more data than the requested byte range.');
+    }
+    parts.push(chunk);
+  }
+
+  if (receivedBytes !== expectedBytes) {
+    for (const existing of parts) existing.fill(0);
+    throw new Error('MEGA did not return the complete requested byte range.');
+  }
+
+  return Buffer.concat(parts, expectedBytes);
+------------------------------
+    parts.push(chunk);
+  }
+
+  if (receivedBytes !== expectedBytes) {
+    for (const existing of parts) existing.fill(0);
+    throw new Error('MEGA did not return the complete requested byte range.');
+  }
+
+  return Buffer.concat(parts, expectedBytes);
+}
+
+app.get('/mega/files/:fileId/content', async (request, reply) => {
+  const params = request.params as { fileId?: string };
+  const query = request.query as { accountId?: string };
+  const fileId = params.fileId;
+  const accountId = query.accountId;
+------------------------------
+  }
+
+  return Buffer.concat(parts, expectedBytes);
+}
+
+app.get('/mega/files/:fileId/content', async (request, reply) => {
+  const params = request.params as { fileId?: string };
+  const query = request.query as { accountId?: string };
+  const fileId = params.fileId;
+  const accountId = query.accountId;
+
+  if (
+    !accountId ||
+    !fileId ||
+    !/^[A-Za-z0-9_-]{1,200}$/.test(fileId)
+  ) {
+------------------------------
+    });
+  }
+
+  let fileBuffer: Buffer | undefined;
+  try {
+    const adapter = getMegaAdapter(accountId);
+    const file = await adapter.getFileMetadata(accountId, fileId);
+
+    if (file.isFolder) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'Folders cannot be opened as files.',
+      });
+    }
+
+    const totalBytes = Number(file.sizeBytes);
+------------------------------
+
+    const totalBytes = Number(file.sizeBytes);
+    if (!Number.isSafeInteger(totalBytes) || totalBytes < 1) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'MEGA did not provide a valid file size.',
+      });
+    }
+    if (totalBytes > maxMegaPreviewBytes) {
+      return reply.code(413).send({
+        status: 'error',
+        message: 'This file is larger than the 50 MB preview limit.',
+      });
+    }
+
+    fileBuffer = await collectMegaDownload(
+------------------------------
+      return reply.code(400).send({
+        status: 'error',
+        message: 'MEGA did not provide a valid file size.',
+      });
+    }
+    if (totalBytes > maxMegaPreviewBytes) {
+      return reply.code(413).send({
+        status: 'error',
+        message: 'This file is larger than the 50 MB preview limit.',
+      });
+    }
+
+    fileBuffer = await collectMegaDownload(
+      accountId,
+      fileId,
+      0,
+------------------------------
+        status: 'error',
+        message: 'This file is larger than the 50 MB preview limit.',
+      });
+    }
+
+    fileBuffer = await collectMegaDownload(
+      accountId,
+      fileId,
+      0,
+      totalBytes - 1,
+      totalBytes,
+    );
+
+    const safeName = file.name.replace(/[\r\n"]/g, '_').slice(0, 255);
+    reply
+      .header('Content-Type', getMegaMimeType(safeName))
+------------------------------
+      totalBytes,
+    );
+
+    const safeName = file.name.replace(/[\r\n"]/g, '_').slice(0, 255);
+    reply
+      .header('Content-Type', getMegaMimeType(safeName))
+      .header('Content-Length', String(fileBuffer.length))
+      .header(
+        'Content-Disposition',
+        `inline; filename="preview"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+      )
+      .header('Cache-Control', 'private, no-store')
+      .header('X-Content-Type-Options', 'nosniff');
+
+    return reply.send(fileBuffer);
+  } catch {
+------------------------------
+      .header('X-Content-Type-Options', 'nosniff');
+
+    return reply.send(fileBuffer);
+  } catch {
+    fileBuffer?.fill(0);
+    request.log.error('MEGA file preview request failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to retrieve this file from MEGA.',
+    });
+  }
+});
+
+app.post('/mega/transfers/download/init', async (request, reply) => {
+  const body = request.body as { accountId?: string; fileId?: string } | null;
+
+------------------------------
+  } catch {
+    fileBuffer?.fill(0);
+    request.log.error('MEGA file preview request failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to retrieve this file from MEGA.',
+    });
+  }
+});
+
+app.post('/mega/transfers/download/init', async (request, reply) => {
+  const body = request.body as { accountId?: string; fileId?: string } | null;
+
+  if (
+    !body ||
+    typeof body.accountId !== 'string' ||
+------------------------------
+      message: 'Unable to retrieve this file from MEGA.',
+    });
+  }
+});
+
+app.post('/mega/transfers/download/init', async (request, reply) => {
+  const body = request.body as { accountId?: string; fileId?: string } | null;
+
+  if (
+    !body ||
+    typeof body.accountId !== 'string' ||
+    typeof body.fileId !== 'string' ||
+    !/^[A-Za-z0-9_-]{1,200}$/.test(body.fileId)
+  ) {
+    return reply.code(400).send({
+      status: 'error',
+------------------------------
+      message: 'A valid accountId and fileId are required.',
+    });
+  }
+
+  try {
+    for (const [id, stale] of megaDownloadTransfers) {
+      if (Date.now() - stale.createdAt > 30 * 60 * 1000) {
+        megaDownloadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+    const file = await adapter.getFileMetadata(body.accountId, body.fileId);
+
+    if (file.isFolder) {
+      return reply.code(400).send({
+------------------------------
+  }
+
+  try {
+    for (const [id, stale] of megaDownloadTransfers) {
+      if (Date.now() - stale.createdAt > 30 * 60 * 1000) {
+        megaDownloadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+    const file = await adapter.getFileMetadata(body.accountId, body.fileId);
+
+    if (file.isFolder) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'Folders cannot be downloaded as files.',
+------------------------------
+      if (Date.now() - stale.createdAt > 30 * 60 * 1000) {
+        megaDownloadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+    const file = await adapter.getFileMetadata(body.accountId, body.fileId);
+
+    if (file.isFolder) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'Folders cannot be downloaded as files.',
+      });
+    }
+
+    const totalBytes = Number(file.sizeBytes);
+------------------------------
+
+    const totalBytes = Number(file.sizeBytes);
+    if (!Number.isSafeInteger(totalBytes) || totalBytes < 1) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'MEGA did not provide a valid file size.',
+      });
+    }
+
+    const transferId = randomBytes(18).toString('hex');
+    const fileName = file.name || 'download';
+    const mimeType = getMegaMimeType(fileName);
+
+    megaDownloadTransfers.set(transferId, {
+      accountId: body.accountId,
+      fileId: body.fileId,
+------------------------------
+      });
+    }
+
+    const transferId = randomBytes(18).toString('hex');
+    const fileName = file.name || 'download';
+    const mimeType = getMegaMimeType(fileName);
+
+    megaDownloadTransfers.set(transferId, {
+      accountId: body.accountId,
+      fileId: body.fileId,
+      fileName,
+      mimeType,
+      totalBytes,
+      createdAt: Date.now(),
+    });
+
+------------------------------
+
+    const transferId = randomBytes(18).toString('hex');
+    const fileName = file.name || 'download';
+    const mimeType = getMegaMimeType(fileName);
+
+    megaDownloadTransfers.set(transferId, {
+      accountId: body.accountId,
+      fileId: body.fileId,
+      fileName,
+      mimeType,
+      totalBytes,
+      createdAt: Date.now(),
+    });
+
+    return reply.code(201).send({
+      status: 'success',
+------------------------------
+    });
+
+    return reply.code(201).send({
+      status: 'success',
+      transfer: { transferId, fileName, mimeType, totalBytes },
+      chunkSize: maxMegaDownloadChunkBytes,
+    });
+  } catch {
+    request.log.error('MEGA download initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Could not initialize MEGA download.',
+    });
+  }
+});
+
+------------------------------
+      status: 'success',
+      transfer: { transferId, fileName, mimeType, totalBytes },
+      chunkSize: maxMegaDownloadChunkBytes,
+    });
+  } catch {
+    request.log.error('MEGA download initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Could not initialize MEGA download.',
+    });
+  }
+});
+
+app.get('/mega/transfers/download/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const query = request.query as { startByte?: string };
+------------------------------
+    });
+  } catch {
+    request.log.error('MEGA download initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Could not initialize MEGA download.',
+    });
+  }
+});
+
+app.get('/mega/transfers/download/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const query = request.query as { startByte?: string };
+  const transfer = params.transferId
+    ? megaDownloadTransfers.get(params.transferId)
+    : undefined;
+------------------------------
+      message: 'Could not initialize MEGA download.',
+    });
+  }
+});
+
+app.get('/mega/transfers/download/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const query = request.query as { startByte?: string };
+  const transfer = params.transferId
+    ? megaDownloadTransfers.get(params.transferId)
+    : undefined;
+  const startByte = Number(query.startByte);
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+------------------------------
+
+app.get('/mega/transfers/download/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const query = request.query as { startByte?: string };
+  const transfer = params.transferId
+    ? megaDownloadTransfers.get(params.transferId)
+    : undefined;
+  const startByte = Number(query.startByte);
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA download session was not found.',
+    });
+  }
+  if (
+------------------------------
+  const startByte = Number(query.startByte);
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA download session was not found.',
+    });
+  }
+  if (
+    !Number.isSafeInteger(startByte) ||
+    startByte < 0 ||
+    startByte >= transfer.totalBytes
+  ) {
+    return reply.code(400).send({
+      status: 'error',
+      message: 'Invalid download byte offset.',
+------------------------------
+      message: 'Invalid download byte offset.',
+    });
+  }
+
+  const endByte = Math.min(
+    startByte + maxMegaDownloadChunkBytes - 1,
+    transfer.totalBytes - 1,
+  );
+  const expectedBytes = endByte - startByte + 1;
+  let chunk: Buffer | undefined;
+
+  try {
+    chunk = await collectMegaDownload(
+      transfer.accountId,
+      transfer.fileId,
+      startByte,
+------------------------------
+  );
+  const expectedBytes = endByte - startByte + 1;
+  let chunk: Buffer | undefined;
+
+  try {
+    chunk = await collectMegaDownload(
+      transfer.accountId,
+      transfer.fileId,
+      startByte,
+      endByte,
+      expectedBytes,
+    );
+
+    reply
+      .header('Content-Type', 'application/octet-stream')
+      .header('Content-Length', String(chunk.length))
+------------------------------
+      .header('X-Content-Type-Options', 'nosniff');
+
+    return reply.send(chunk);
+  } catch {
+    chunk?.fill(0);
+    request.log.error('MEGA download chunk request failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to retrieve the next MEGA download chunk.',
+    });
+  }
+});
+
+app.delete('/mega/transfers/download/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+------------------------------
+  } catch {
+    chunk?.fill(0);
+    request.log.error('MEGA download chunk request failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Unable to retrieve the next MEGA download chunk.',
+    });
+  }
+});
+
+app.delete('/mega/transfers/download/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaDownloadTransfers.get(params.transferId)
+    : undefined;
+
+------------------------------
+      message: 'Unable to retrieve the next MEGA download chunk.',
+    });
+  }
+});
+
+app.delete('/mega/transfers/download/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaDownloadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA download session was not found.',
+    });
+------------------------------
+});
+
+app.delete('/mega/transfers/download/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaDownloadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA download session was not found.',
+    });
+  }
+
+  megaDownloadTransfers.delete(params.transferId!);
+------------------------------
+    : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA download session was not found.',
+    });
+  }
+
+  megaDownloadTransfers.delete(params.transferId!);
+  return reply.send({ status: 'success' });
+});
+
+
+
+// MEGA upload sessions stream incoming chunks directly into the existing
+------------------------------
+      status: 'error',
+      message: 'MEGA download session was not found.',
+    });
+  }
+
+  megaDownloadTransfers.delete(params.transferId!);
+  return reply.send({ status: 'success' });
+});
+
+
+
+// MEGA upload sessions stream incoming chunks directly into the existing
+// megajs adapter. The application does not buffer whole files in memory.
+
+function megaUploadSnapshot(transferId: string, transfer: MegaUploadTransfer) {
+  return {
+------------------------------
+  return reply.send({ status: 'success' });
+});
+
+
+
+// MEGA upload sessions stream incoming chunks directly into the existing
+// megajs adapter. The application does not buffer whole files in memory.
+
+function megaUploadSnapshot(transferId: string, transfer: MegaUploadTransfer) {
+  return {
+    transferId,
+    fileName: transfer.fileName,
+    totalBytes: transfer.totalBytes,
+    receivedBytes: transfer.receivedBytes,
+    uploadedBytes: transfer.uploadedBytes,
+    progress: transfer.completed
+------------------------------
+});
+
+
+
+// MEGA upload sessions stream incoming chunks directly into the existing
+// megajs adapter. The application does not buffer whole files in memory.
+
+function megaUploadSnapshot(transferId: string, transfer: MegaUploadTransfer) {
+  return {
+    transferId,
+    fileName: transfer.fileName,
+    totalBytes: transfer.totalBytes,
+    receivedBytes: transfer.receivedBytes,
+    uploadedBytes: transfer.uploadedBytes,
+    progress: transfer.completed
+      ? 100
+------------------------------
+
+
+// MEGA upload sessions stream incoming chunks directly into the existing
+// megajs adapter. The application does not buffer whole files in memory.
+
+function megaUploadSnapshot(transferId: string, transfer: MegaUploadTransfer) {
+  return {
+    transferId,
+    fileName: transfer.fileName,
+    totalBytes: transfer.totalBytes,
+    receivedBytes: transfer.receivedBytes,
+    uploadedBytes: transfer.uploadedBytes,
+    progress: transfer.completed
+      ? 100
+      : transfer.totalBytes
+        ? Math.min(99, Math.round((transfer.uploadedBytes / transfer.totalBytes) * 100))
+------------------------------
+        }
+      : undefined,
+  };
+}
+
+app.post('/mega/transfers/upload/init', async (request, reply) => {
+  const body = request.body as {
+    accountId?: string;
+    fileName?: string;
+    mimeType?: string;
+    totalBytes?: number;
+    parentId?: string;
+  } | null;
+
+  if (
+    !body ||
+------------------------------
+      message: 'Invalid file details or destination folder.',
+    });
+  }
+
+  try {
+    for (const [id, stale] of megaUploadTransfers) {
+      if (Date.now() - stale.createdAt > 30 * 60 * 1000) {
+        if (!stale.completed) {
+          stale.cancelled = true;
+          stale.stream.destroy(new Error('MEGA upload session expired.'));
+        }
+        megaUploadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+------------------------------
+  try {
+    for (const [id, stale] of megaUploadTransfers) {
+      if (Date.now() - stale.createdAt > 30 * 60 * 1000) {
+        if (!stale.completed) {
+          stale.cancelled = true;
+          stale.stream.destroy(new Error('MEGA upload session expired.'));
+        }
+        megaUploadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+    await adapter.connect(body.accountId);
+
+    if (parentId) {
+      const parent = await adapter.getFileMetadata(body.accountId, parentId);
+------------------------------
+      if (Date.now() - stale.createdAt > 30 * 60 * 1000) {
+        if (!stale.completed) {
+          stale.cancelled = true;
+          stale.stream.destroy(new Error('MEGA upload session expired.'));
+        }
+        megaUploadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+    await adapter.connect(body.accountId);
+
+    if (parentId) {
+      const parent = await adapter.getFileMetadata(body.accountId, parentId);
+      if (!parent.isFolder) {
+        return reply.code(400).send({
+------------------------------
+        }
+        megaUploadTransfers.delete(id);
+      }
+    }
+
+    const adapter = getMegaAdapter(body.accountId);
+    await adapter.connect(body.accountId);
+
+    if (parentId) {
+      const parent = await adapter.getFileMetadata(body.accountId, parentId);
+      if (!parent.isFolder) {
+        return reply.code(400).send({
+          status: 'error',
+          message: 'Destination folder was not found.',
+        });
+      }
+------------------------------
+    }
+
+    const stream = new PassThrough({ highWaterMark: 1024 * 1024 });
+    const transferId = randomBytes(18).toString('hex');
+
+    const transfer: MegaUploadTransfer = {
+      accountId: body.accountId,
+      fileName,
+      totalBytes,
+      receivedBytes: 0,
+      uploadedBytes: 0,
+      paused: false,
+      cancelled: false,
+      completed: false,
+      stream,
+      uploadPromise: Promise.resolve(undefined as unknown as RemoteFile),
+------------------------------
+    });
+
+    // Attach a handler immediately so cancellation/expiry cannot create an
+    // unhandled rejection while the client is no longer waiting on the session.
+    void transfer.uploadPromise.catch(() => undefined);
+    megaUploadTransfers.set(transferId, transfer);
+
+    return reply.code(201).send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId, transfer),
+      chunkSize: maxUploadChunkBytes,
+    });
+  } catch {
+    request.log.error('MEGA upload initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+------------------------------
+    void transfer.uploadPromise.catch(() => undefined);
+    megaUploadTransfers.set(transferId, transfer);
+
+    return reply.code(201).send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId, transfer),
+      chunkSize: maxUploadChunkBytes,
+    });
+  } catch {
+    request.log.error('MEGA upload initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Could not initialize MEGA upload.',
+    });
+  }
+});
+------------------------------
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId, transfer),
+      chunkSize: maxUploadChunkBytes,
+    });
+  } catch {
+    request.log.error('MEGA upload initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Could not initialize MEGA upload.',
+    });
+  }
+});
+
+app.put('/mega/transfers/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+------------------------------
+    });
+  } catch {
+    request.log.error('MEGA upload initialization failed.');
+    return reply.code(502).send({
+      status: 'error',
+      message: 'Could not initialize MEGA upload.',
+    });
+  }
+});
+
+app.put('/mega/transfers/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer || transfer.cancelled) {
+------------------------------
+      message: 'Could not initialize MEGA upload.',
+    });
+  }
+});
+
+app.put('/mega/transfers/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+------------------------------
+});
+
+app.put('/mega/transfers/:transferId/chunk', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+
+  if (transfer.completed) {
+    return reply.send({
+------------------------------
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+
+  if (transfer.completed) {
+    return reply.send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  }
+
+------------------------------
+  }
+
+  if (transfer.completed) {
+    return reply.send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  }
+
+  if (transfer.paused) {
+    return reply.code(409).send({
+      status: 'error',
+      message: 'Transfer is paused.',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  }
+------------------------------
+
+  if (transfer.paused) {
+    return reply.code(409).send({
+      status: 'error',
+      message: 'Transfer is paused.',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  }
+
+  let startByte: number;
+  let chunk: Buffer;
+
+  if (Buffer.isBuffer(request.body)) {
+    const header = request.headers['x-start-byte'];
+    startByte = typeof header === 'string' ? Number(header) : Number.NaN;
+    chunk = request.body;
+------------------------------
+      body.chunkBase64.length > Math.ceil(maxUploadChunkBytes / 3) * 4 ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(body.chunkBase64)
+    ) {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'Invalid MEGA upload chunk.',
+      });
+    }
+
+    startByte = body.startByte!;
+    chunk = Buffer.from(body.chunkBase64, 'base64');
+  }
+
+  const endByte = startByte + chunk.length - 1;
+  const isFinalChunk = endByte + 1 === transfer.totalBytes;
+
+------------------------------
+  ) {
+    if (!Buffer.isBuffer(request.body)) chunk.fill(0);
+    return reply.code(409).send({
+      status: 'error',
+      message: 'Invalid chunk size or byte offset.',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  }
+
+  try {
+    const canContinue = transfer.stream.write(chunk);
+    transfer.receivedBytes += chunk.length;
+
+    if (!canContinue) {
+      await once(transfer.stream, 'drain');
+    }
+------------------------------
+      await once(transfer.stream, 'drain');
+    }
+
+    if (isFinalChunk) {
+      if (transfer.receivedBytes !== transfer.totalBytes) {
+        transfer.stream.destroy(new Error('MEGA upload size mismatch.'));
+        return reply.code(400).send({
+          status: 'error',
+          message: 'Upload size does not match the declared file size.',
+        });
+      }
+
+      transfer.stream.end();
+
+      try {
+        await transfer.uploadPromise;
+------------------------------
+      transfer.stream.end();
+
+      try {
+        await transfer.uploadPromise;
+      } catch {
+        request.log.error('MEGA upload stream failed.');
+        megaUploadTransfers.delete(transferId!);
+        return reply.code(502).send({
+          status: 'error',
+          message: 'MEGA did not complete the upload.',
+        });
+      }
+    }
+
+    return reply.send({
+      status: 'success',
+------------------------------
+
+      try {
+        await transfer.uploadPromise;
+      } catch {
+        request.log.error('MEGA upload stream failed.');
+        megaUploadTransfers.delete(transferId!);
+        return reply.code(502).send({
+          status: 'error',
+          message: 'MEGA did not complete the upload.',
+        });
+      }
+    }
+
+    return reply.send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+------------------------------
+      } catch {
+        request.log.error('MEGA upload stream failed.');
+        megaUploadTransfers.delete(transferId!);
+        return reply.code(502).send({
+          status: 'error',
+          message: 'MEGA did not complete the upload.',
+        });
+      }
+    }
+
+    return reply.send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  } catch {
+    request.log.error('MEGA upload chunk could not be streamed.');
+------------------------------
+      }
+    }
+
+    return reply.send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  } catch {
+    request.log.error('MEGA upload chunk could not be streamed.');
+    transfer.stream.destroy();
+    megaUploadTransfers.delete(transferId!);
+    return reply.code(502).send({
+      status: 'error',
+      message: 'MEGA upload chunk failed.',
+    });
+  }
+------------------------------
+    return reply.send({
+      status: 'success',
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  } catch {
+    request.log.error('MEGA upload chunk could not be streamed.');
+    transfer.stream.destroy();
+    megaUploadTransfers.delete(transferId!);
+    return reply.code(502).send({
+      status: 'error',
+      message: 'MEGA upload chunk failed.',
+    });
+  }
+});
+
+app.get('/mega/transfers/:transferId', async (request, reply) => {
+------------------------------
+      transfer: megaUploadSnapshot(transferId!, transfer),
+    });
+  } catch {
+    request.log.error('MEGA upload chunk could not be streamed.');
+    transfer.stream.destroy();
+    megaUploadTransfers.delete(transferId!);
+    return reply.code(502).send({
+      status: 'error',
+      message: 'MEGA upload chunk failed.',
+    });
+  }
+});
+
+app.get('/mega/transfers/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+------------------------------
+    request.log.error('MEGA upload chunk could not be streamed.');
+    transfer.stream.destroy();
+    megaUploadTransfers.delete(transferId!);
+    return reply.code(502).send({
+      status: 'error',
+      message: 'MEGA upload chunk failed.',
+    });
+  }
+});
+
+app.get('/mega/transfers/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+------------------------------
+      message: 'MEGA upload chunk failed.',
+    });
+  }
+});
+
+app.get('/mega/transfers/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+------------------------------
+});
+
+app.get('/mega/transfers/:transferId', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+
+  return reply.send({
+------------------------------
+    : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+
+  return reply.send({
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/pause', async (request, reply) => {
+------------------------------
+    });
+  }
+
+  return reply.send({
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/pause', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+------------------------------
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/pause', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'Active MEGA upload was not found.',
+    });
+------------------------------
+});
+
+app.post('/mega/transfers/:transferId/pause', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'Active MEGA upload was not found.',
+    });
+  }
+
+  transfer.paused = true;
+------------------------------
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'Active MEGA upload was not found.',
+    });
+  }
+
+  transfer.paused = true;
+  return reply.send({
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+------------------------------
+  }
+
+  transfer.paused = true;
+  return reply.send({
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/resume', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+------------------------------
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/resume', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'Active MEGA upload was not found.',
+    });
+------------------------------
+});
+
+app.post('/mega/transfers/:transferId/resume', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transfer = params.transferId
+    ? megaUploadTransfers.get(params.transferId)
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'Active MEGA upload was not found.',
+    });
+  }
+
+  transfer.paused = false;
+------------------------------
+    : undefined;
+
+  if (!transfer || transfer.completed || transfer.cancelled) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'Active MEGA upload was not found.',
+    });
+  }
+
+  transfer.paused = false;
+  return reply.send({
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+------------------------------
+  }
+
+  transfer.paused = false;
+  return reply.send({
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/cancel', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+------------------------------
+    status: 'success',
+    transfer: megaUploadSnapshot(params.transferId!, transfer),
+  });
+});
+
+app.post('/mega/transfers/:transferId/cancel', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+------------------------------
+});
+
+app.post('/mega/transfers/:transferId/cancel', async (request, reply) => {
+  const params = request.params as { transferId?: string };
+  const transferId = params.transferId;
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+
+  if (!transfer.completed) {
+    transfer.cancelled = true;
+------------------------------
+  const transfer = transferId ? megaUploadTransfers.get(transferId) : undefined;
+
+  if (!transfer) {
+    return reply.code(404).send({
+      status: 'error',
+      message: 'MEGA upload transfer was not found.',
+    });
+  }
+
+  if (!transfer.completed) {
+    transfer.cancelled = true;
+    transfer.paused = false;
+    transfer.stream.destroy(new Error('MEGA upload cancelled.'));
+    await transfer.uploadPromise.catch(() => undefined);
+  }
+
+------------------------------
+  }
+
+  if (!transfer.completed) {
+    transfer.cancelled = true;
+    transfer.paused = false;
+    transfer.stream.destroy(new Error('MEGA upload cancelled.'));
+    await transfer.uploadPromise.catch(() => undefined);
+  }
+
+  megaUploadTransfers.delete(transferId!);
+  return reply.send({ status: 'success', message: 'Transfer cancelled.' });
+});
+
+
+
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
+------------------------------
+    transfer.paused = false;
+    transfer.stream.destroy(new Error('MEGA upload cancelled.'));
+    await transfer.uploadPromise.catch(() => undefined);
+  }
+
+  megaUploadTransfers.delete(transferId!);
+  return reply.send({ status: 'success', message: 'Transfer cancelled.' });
+});
+
+
+
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
+
+process.once('SIGINT', () => {
+  void app.close();
+});
+------------------------------
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\server\src\core\storage\chunk-types.ts ==========
+  | 'STORED'
+  | 'VERIFIED'
+  | 'ERROR';
+
+export type CloudProvider =
+  | 'GOOGLE_DRIVE'
+  | 'MEGA'
+  | 'ONEDRIVE'
+  | 'DROPBOX'
+  | 'S3_COMPATIBLE';
+
+export interface FileChunk {
+  chunkId: string;
+  fileId: string;
+  sequence: number;
+  sizeBytes: string;
+------------------------------
+  | 'VERIFIED'
+  | 'ERROR';
+
+export type CloudProvider =
+  | 'GOOGLE_DRIVE'
+  | 'MEGA'
+  | 'ONEDRIVE'
+  | 'DROPBOX'
+  | 'S3_COMPATIBLE';
+
+export interface FileChunk {
+  chunkId: string;
+  fileId: string;
+  sequence: number;
+  sizeBytes: string;
+  checksumSha256: string;
+------------------------------
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\server\src\providers\google-drive.adapter.ts ==========
+import { OAuth2Client } from 'google-auth-library';
+import type {
+  CloudProviderAdapter,
+  StorageQuota,
+  RemoteFile,
+  UploadRequest,
+  ListFilesRequest,
+  ListFilesResult,
+  CreateFolderRequest,
+  DownloadOptions,
+} from './provider-interface.js';
+
+import type { GoogleDriveFile } from './google-drive.types.js';
+
+------------------------------
+  files?: GoogleDriveFile[];
+  nextPageToken?: string;
+}
+
+interface DriveQuotaResponse {
+  storageQuota?: {
+    limit?: string;
+    usage?: string;
+    usageInDrive?: string;
+  };
+}
+
+function mapFile(file: GoogleDriveFile): RemoteFile {
+  const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+
+  return {
+------------------------------
+    webUrl: file.webViewLink,
+  };
+}
+
+export class GoogleDriveAdapter implements CloudProviderAdapter {
+  readonly provider = 'GOOGLE_DRIVE' as const;
+
+  constructor(
+    private readonly getClient: (
+      accountId: string,
+    ) => Promise<OAuth2Client | null>,
+  ) {}
+
+  private async client(accountId: string): Promise<OAuth2Client> {
+    const client = await this.getClient(accountId);
+
+------------------------------
+
+  async disconnect(_accountId: string): Promise<void> {
+    // OAuth credentials are managed by the account and credential store.
+  }
+
+  async getQuota(accountId: string): Promise<StorageQuota> {
+    const client = await this.client(accountId);
+    const response = await client.request<DriveQuotaResponse>({
+      url: `${DRIVE_API}/about?fields=storageQuota(limit,usage,usageInDrive)`,
+      method: 'GET',
+    });
+
+    const quota = response.data.storageQuota;
+    const total = BigInt(quota?.limit ?? '0');
+    const used = BigInt(quota?.usageInDrive ?? quota?.usage ?? '0');
+
+------------------------------
+  }
+
+  async getQuota(accountId: string): Promise<StorageQuota> {
+    const client = await this.client(accountId);
+    const response = await client.request<DriveQuotaResponse>({
+      url: `${DRIVE_API}/about?fields=storageQuota(limit,usage,usageInDrive)`,
+      method: 'GET',
+    });
+
+    const quota = response.data.storageQuota;
+    const total = BigInt(quota?.limit ?? '0');
+    const used = BigInt(quota?.usageInDrive ?? quota?.usage ?? '0');
+
+    return {
+      totalBytes: total.toString(),
+      usedBytes: used.toString(),
+------------------------------
+    const response = await client.request<DriveQuotaResponse>({
+      url: `${DRIVE_API}/about?fields=storageQuota(limit,usage,usageInDrive)`,
+      method: 'GET',
+    });
+
+    const quota = response.data.storageQuota;
+    const total = BigInt(quota?.limit ?? '0');
+    const used = BigInt(quota?.usageInDrive ?? quota?.usage ?? '0');
+
+    return {
+      totalBytes: total.toString(),
+      usedBytes: used.toString(),
+      freeBytes: (total > used ? total - used : 0n).toString(),
+    };
+  }
+
+------------------------------
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\server\src\providers\provider-interface.ts ==========
+export type ProviderType =
+  | 'GOOGLE_DRIVE'
+  | 'MEGA'
+  | 'ONEDRIVE'
+  | 'DROPBOX'
+  | 'S3_COMPATIBLE';
+
+export interface ProviderAccount {
+  accountId: string;
+  provider: ProviderType;
+  displayName: string;
+  connected: boolean;
+------------------------------
+export type ProviderType =
+  | 'GOOGLE_DRIVE'
+  | 'MEGA'
+  | 'ONEDRIVE'
+  | 'DROPBOX'
+  | 'S3_COMPATIBLE';
+
+export interface ProviderAccount {
+  accountId: string;
+  provider: ProviderType;
+  displayName: string;
+  connected: boolean;
+}
+------------------------------
+  provider: ProviderType;
+  displayName: string;
+  connected: boolean;
+}
+
+export interface StorageQuota {
+  totalBytes: string;
+  usedBytes: string;
+  freeBytes: string;
+}
+
+export interface RemoteFile {
+  remoteObjectId: string;
+  name: string;
+  sizeBytes: string;
+  mimeType?: string;
+------------------------------
+  readonly provider: ProviderType;
+
+  connect(accountId: string): Promise<void>;
+  disconnect(accountId: string): Promise<void>;
+
+  getQuota(accountId: string): Promise<StorageQuota>;
+
+  listFiles(
+    accountId: string,
+    request?: ListFilesRequest,
+  ): Promise<ListFilesResult>;
+
+  createFolder(
+    accountId: string,
+    request: CreateFolderRequest,
+  ): Promise<RemoteFile>;
+------------------------------
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\server\src\providers\mega\mega-auth.service.ts ==========
+import * as megajs from 'megajs';
+import type { TokenVault, EncryptedToken } from '../../core/security/token-vault.js';
+
+type MegaStorage = megajs.Storage;
+type MegaSession = ReturnType<MegaStorage['toJSON']>;
+
+export interface MegaLoginResult {
+  storage: MegaStorage;
+  encryptedSession: EncryptedToken;
+  email: string;
+  displayName: string;
+------------------------------
+import * as megajs from 'megajs';
+import type { TokenVault, EncryptedToken } from '../../core/security/token-vault.js';
+
+type MegaStorage = megajs.Storage;
+type MegaSession = ReturnType<MegaStorage['toJSON']>;
+
+export interface MegaLoginResult {
+  storage: MegaStorage;
+  encryptedSession: EncryptedToken;
+  email: string;
+  displayName: string;
+}
+
+export class MegaAuthService {
+------------------------------
+import * as megajs from 'megajs';
+import type { TokenVault, EncryptedToken } from '../../core/security/token-vault.js';
+
+type MegaStorage = megajs.Storage;
+type MegaSession = ReturnType<MegaStorage['toJSON']>;
+
+export interface MegaLoginResult {
+  storage: MegaStorage;
+  encryptedSession: EncryptedToken;
+  email: string;
+  displayName: string;
+}
+
+export class MegaAuthService {
+  constructor(private readonly vault: TokenVault) {}
+------------------------------
+import type { TokenVault, EncryptedToken } from '../../core/security/token-vault.js';
+
+type MegaStorage = megajs.Storage;
+type MegaSession = ReturnType<MegaStorage['toJSON']>;
+
+export interface MegaLoginResult {
+  storage: MegaStorage;
+  encryptedSession: EncryptedToken;
+  email: string;
+  displayName: string;
+}
+
+export class MegaAuthService {
+  constructor(private readonly vault: TokenVault) {}
+
+  private encryptSession(storage: MegaStorage): EncryptedToken {
+------------------------------
+
+type MegaStorage = megajs.Storage;
+type MegaSession = ReturnType<MegaStorage['toJSON']>;
+
+export interface MegaLoginResult {
+  storage: MegaStorage;
+  encryptedSession: EncryptedToken;
+  email: string;
+  displayName: string;
+}
+
+export class MegaAuthService {
+  constructor(private readonly vault: TokenVault) {}
+
+  private encryptSession(storage: MegaStorage): EncryptedToken {
+    const session = storage.toJSON();
+------------------------------
+  encryptedSession: EncryptedToken;
+  email: string;
+  displayName: string;
+}
+
+export class MegaAuthService {
+  constructor(private readonly vault: TokenVault) {}
+
+  private encryptSession(storage: MegaStorage): EncryptedToken {
+    const session = storage.toJSON();
+
+    // Never persist login password or a two-factor authentication code.
+    const safeOptions = { ...session.options };
+    safeOptions.password = '';
+    delete safeOptions.secondFactorCode;
+    safeOptions.autologin = false;
+------------------------------
+}
+
+export class MegaAuthService {
+  constructor(private readonly vault: TokenVault) {}
+
+  private encryptSession(storage: MegaStorage): EncryptedToken {
+    const session = storage.toJSON();
+
+    // Never persist login password or a two-factor authentication code.
+    const safeOptions = { ...session.options };
+    safeOptions.password = '';
+    delete safeOptions.secondFactorCode;
+    safeOptions.autologin = false;
+    safeOptions.autoload = false;
+    safeOptions.keepalive = false;
+
+------------------------------
+
+  async login(
+    email: string,
+    password: string,
+    secondFactorCode?: string,
+  ): Promise<MegaLoginResult> {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      throw new Error('MEGA email and password are required.');
+    }
+
+    const storage = new megajs.Storage({
+      email: normalizedEmail,
+      password,
+      ...(secondFactorCode ? { secondFactorCode } : {}),
+------------------------------
+    secondFactorCode?: string,
+  ): Promise<MegaLoginResult> {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      throw new Error('MEGA email and password are required.');
+    }
+
+    const storage = new megajs.Storage({
+      email: normalizedEmail,
+      password,
+      ...(secondFactorCode ? { secondFactorCode } : {}),
+      autoload: true,
+      autologin: true,
+      keepalive: false,
+    });
+------------------------------
+
+    if (!normalizedEmail || !password) {
+      throw new Error('MEGA email and password are required.');
+    }
+
+    const storage = new megajs.Storage({
+      email: normalizedEmail,
+      password,
+      ...(secondFactorCode ? { secondFactorCode } : {}),
+      autoload: true,
+      autologin: true,
+      keepalive: false,
+    });
+
+    try {
+      await storage.ready;
+------------------------------
+      await storage.close().catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async restore(encryptedSession: EncryptedToken): Promise<MegaStorage> {
+    let stage = 'decrypt';
+    let plaintext: string;
+
+    try {
+      plaintext = this.vault.decrypt(encryptedSession);
+    } catch {
+      throw new Error('MEGA_SESSION_RESTORE_FAILED:decrypt');
+    }
+
+    try {
+------------------------------
+    let plaintext: string;
+
+    try {
+      plaintext = this.vault.decrypt(encryptedSession);
+    } catch {
+      throw new Error('MEGA_SESSION_RESTORE_FAILED:decrypt');
+    }
+
+    try {
+      stage = 'parse';
+      const session = JSON.parse(plaintext) as MegaSession;
+
+      stage = 'validate';
+      if (
+        !session ||
+        typeof session.key !== 'string' ||
+------------------------------
+      throw new Error('MEGA_SESSION_RESTORE_FAILED:decrypt');
+    }
+
+    try {
+      stage = 'parse';
+      const session = JSON.parse(plaintext) as MegaSession;
+
+      stage = 'validate';
+      if (
+        !session ||
+        typeof session.key !== 'string' ||
+        typeof session.sid !== 'string' ||
+        !session.options ||
+        typeof session.options.email !== 'string'
+      ) {
+        throw new Error('Invalid saved MEGA session.');
+------------------------------
+        typeof session.key !== 'string' ||
+        typeof session.sid !== 'string' ||
+        !session.options ||
+        typeof session.options.email !== 'string'
+      ) {
+        throw new Error('Invalid saved MEGA session.');
+      }
+
+      const safeOptions = { ...session.options };
+      safeOptions.password = '';
+      delete safeOptions.secondFactorCode;
+      safeOptions.autologin = false;
+      safeOptions.autoload = false;
+    safeOptions.keepalive = false;
+
+      const safeSession = {
+------------------------------
+        ...session,
+        options: safeOptions,
+      };
+
+      stage = 'storage_init';
+      const storage = megajs.Storage.fromJSON(safeSession);
+
+      try {
+        stage = 'storage_ready';
+        await storage.ready;
+
+        stage = 'storage_reload';
+        await storage.reload(true);
+
+        return storage;
+      } catch (error) {
+------------------------------
+        stage = 'storage_reload';
+        await storage.reload(true);
+
+        return storage;
+      } catch (error) {
+        // Storage.close() logs out in megajs v1. A failed reload may be
+        // transient, so do not invalidate the persisted SID while reporting it.
+        let reason = 'UNKNOWN_ERROR';
+        if (error instanceof Error) {
+          const message = error.message;
+
+          if (/^ESID\s+\(-15\):/.test(message)) {
+            reason = 'SESSION_EXPIRED';
+          } else if (/^ERATELIMIT\s+\(-4\):/.test(message)) {
+            reason = 'RATE_LIMIT';
+          } else if (/^(?:EAGAIN\s+\(-3\)|ETEMPUNAVAIL\s+\(-18\)):/.test(message)) {
+------------------------------
+          } else if (error.name === 'TypeError' || error.name === 'AbortError') {
+            reason = 'NETWORK_ERROR';
+          }
+        }
+
+        throw new Error(`MEGA_SESSION_RESTORE_FAILED:${stage}:${reason}`);
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith('MEGA_SESSION_RESTORE_FAILED:')
+      ) {
+        throw error;
+      }
+
+      throw new Error(`MEGA_SESSION_RESTORE_FAILED:${stage}`);
+------------------------------
+        throw new Error(`MEGA_SESSION_RESTORE_FAILED:${stage}:${reason}`);
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith('MEGA_SESSION_RESTORE_FAILED:')
+      ) {
+        throw error;
+      }
+
+      throw new Error(`MEGA_SESSION_RESTORE_FAILED:${stage}`);
+    } finally {
+      // JavaScript strings cannot be reliably zeroed.
+    }
+  }
+
+------------------------------
+        error.message.startsWith('MEGA_SESSION_RESTORE_FAILED:')
+      ) {
+        throw error;
+      }
+
+      throw new Error(`MEGA_SESSION_RESTORE_FAILED:${stage}`);
+    } finally {
+      // JavaScript strings cannot be reliably zeroed.
+    }
+  }
+
+  encryptExistingSession(storage: MegaStorage): EncryptedToken {
+    return this.encryptSession(storage);
+  }
+}
+
+------------------------------
+    } finally {
+      // JavaScript strings cannot be reliably zeroed.
+    }
+  }
+
+  encryptExistingSession(storage: MegaStorage): EncryptedToken {
+    return this.encryptSession(storage);
+  }
+}
+
+------------------------------
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\server\src\providers\mega\mega.adapter.ts ==========
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import * as megajs from 'megajs';
+
+import type {
+  CloudProviderAdapter,
+  StorageQuota,
+  RemoteFile,
+  UploadRequest,
+  ListFilesRequest,
+  ListFilesResult,
+  CreateFolderRequest,
+  DownloadOptions,
+------------------------------
+import { pipeline } from 'node:stream/promises';
+import * as megajs from 'megajs';
+
+import type {
+  CloudProviderAdapter,
+  StorageQuota,
+  RemoteFile,
+  UploadRequest,
+  ListFilesRequest,
+  ListFilesResult,
+  CreateFolderRequest,
+  DownloadOptions,
+} from '../provider-interface.js';
+
+type MegaStorage = megajs.Storage;
+type MegaFile = MegaStorage['root'];
+------------------------------
+  ListFilesResult,
+  CreateFolderRequest,
+  DownloadOptions,
+} from '../provider-interface.js';
+
+type MegaStorage = megajs.Storage;
+type MegaFile = MegaStorage['root'];
+
+function mapFile(file: MegaFile): RemoteFile {
+  const id = file.nodeId;
+
+  if (!id) {
+    throw new Error('MEGA file identifier is unavailable.');
+  }
+
+  return {
+------------------------------
+  CreateFolderRequest,
+  DownloadOptions,
+} from '../provider-interface.js';
+
+type MegaStorage = megajs.Storage;
+type MegaFile = MegaStorage['root'];
+
+function mapFile(file: MegaFile): RemoteFile {
+  const id = file.nodeId;
+
+  if (!id) {
+    throw new Error('MEGA file identifier is unavailable.');
+  }
+
+  return {
+    remoteObjectId: id,
+------------------------------
+} from '../provider-interface.js';
+
+type MegaStorage = megajs.Storage;
+type MegaFile = MegaStorage['root'];
+
+function mapFile(file: MegaFile): RemoteFile {
+  const id = file.nodeId;
+
+  if (!id) {
+    throw new Error('MEGA file identifier is unavailable.');
+  }
+
+  return {
+    remoteObjectId: id,
+    name: file.name ?? file.label,
+    sizeBytes: String(file.size ?? 0),
+------------------------------
+
+function mapFile(file: MegaFile): RemoteFile {
+  const id = file.nodeId;
+
+  if (!id) {
+    throw new Error('MEGA file identifier is unavailable.');
+  }
+
+  return {
+    remoteObjectId: id,
+    name: file.name ?? file.label,
+    sizeBytes: String(file.size ?? 0),
+    mimeType: undefined,
+    parentId: file.parent?.nodeId ?? null,
+    isFolder: file.directory,
+    modifiedAt: file.timestamp
+------------------------------
+      ? new Date(file.timestamp * 1000).toISOString()
+      : undefined,
+  };
+}
+
+export class MegaAdapter implements CloudProviderAdapter {
+  readonly provider = 'MEGA' as const;
+
+  constructor(
+    private readonly getStorage: (
+      accountId: string,
+    ) => Promise<MegaStorage>,
+  ) {}
+
+  async connect(accountId: string): Promise<void> {
+    await this.getStorage(accountId);
+------------------------------
+      : undefined,
+  };
+}
+
+export class MegaAdapter implements CloudProviderAdapter {
+  readonly provider = 'MEGA' as const;
+
+  constructor(
+    private readonly getStorage: (
+      accountId: string,
+    ) => Promise<MegaStorage>,
+  ) {}
+
+  async connect(accountId: string): Promise<void> {
+    await this.getStorage(accountId);
+  }
+------------------------------
+  readonly provider = 'MEGA' as const;
+
+  constructor(
+    private readonly getStorage: (
+      accountId: string,
+    ) => Promise<MegaStorage>,
+  ) {}
+
+  async connect(accountId: string): Promise<void> {
+    await this.getStorage(accountId);
+  }
+
+  async disconnect(_accountId: string): Promise<void> {
+    // The encrypted session remains stored for the next connection.
+  }
+
+------------------------------
+
+  async disconnect(_accountId: string): Promise<void> {
+    // The encrypted session remains stored for the next connection.
+  }
+
+  async getQuota(accountId: string): Promise<StorageQuota> {
+    const storage = await this.getStorage(accountId);
+    const info = await storage.getAccountInfo();
+
+    const total = BigInt(Math.max(0, Math.floor(info.spaceTotal)));
+    const used = BigInt(Math.max(0, Math.floor(info.spaceUsed)));
+
+    return {
+      totalBytes: total.toString(),
+      usedBytes: used.toString(),
+      freeBytes: (total > used ? total - used : 0n).toString(),
+------------------------------
+
+    if (request.parentId) {
+      const selected = storage.files[request.parentId];
+
+      if (!selected || !selected.directory) {
+        throw new Error('MEGA parent folder was not found.');
+      }
+
+      folder = selected;
+    }
+
+    const children = folder.children ?? [];
+    const pageSize = Math.min(Math.max(request.pageSize ?? 100, 1), 1000);
+    const offset = request.pageToken
+      ? Number.parseInt(request.pageToken, 10)
+      : 0;
+------------------------------
+    const offset = request.pageToken
+      ? Number.parseInt(request.pageToken, 10)
+      : 0;
+
+    if (!Number.isSafeInteger(offset) || offset < 0) {
+      throw new Error('Invalid MEGA page token.');
+    }
+
+    return {
+      files: children.slice(offset, offset + pageSize).map(mapFile),
+      nextPageToken:
+        offset + pageSize < children.length
+          ? String(offset + pageSize)
+          : null,
+    };
+  }
+------------------------------
+
+    if (request.parentId) {
+      const selected = storage.files[request.parentId];
+
+      if (!selected || !selected.directory) {
+        throw new Error('MEGA parent folder was not found.');
+      }
+
+      parent = selected;
+    }
+
+    const folder = await parent.mkdir({ name });
+    return mapFile(folder);
+  }
+
+  async getFileMetadata(
+------------------------------
+      await storage.reload(true);
+      file = storage.files[remoteObjectId];
+    }
+
+    if (!file) {
+      throw new Error('MEGA file was not found.');
+    }
+
+    return mapFile(file);
+  }
+
+  async upload(
+    accountId: string,
+    request: UploadRequest,
+  ): Promise<RemoteFile> {
+    const size = BigInt(request.sizeBytes);
+------------------------------
+    request: UploadRequest,
+  ): Promise<RemoteFile> {
+    const size = BigInt(request.sizeBytes);
+
+    if (size <= 0n || size > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error('Invalid MEGA upload size.');
+    }
+
+    const storage = await this.getStorage(accountId);
+    let parent = storage.root;
+
+    if (request.parentId) {
+      const selected = storage.files[request.parentId];
+
+      if (!selected || !selected.directory) {
+        throw new Error('MEGA parent folder was not found.');
+------------------------------
+
+    if (request.parentId) {
+      const selected = storage.files[request.parentId];
+
+      if (!selected || !selected.directory) {
+        throw new Error('MEGA parent folder was not found.');
+      }
+
+      parent = selected;
+    }
+
+    const upload = parent.upload({
+      name: request.fileName,
+      size: Number(size),
+      maxChunkSize: 1024 * 1024,
+    });
+------------------------------
+      await storage.reload(true);
+      file = storage.files[remoteObjectId];
+    }
+
+    if (!file || file.directory) {
+      throw new Error('MEGA file was not found.');
+    }
+
+    const stream = file.download({
+      ...(options.startByte !== undefined
+        ? { start: options.startByte }
+        : {}),
+      ...(options.endByte !== undefined
+        ? { end: options.endByte }
+        : {}),
+    });
+------------------------------
+      await storage.reload(true);
+      file = storage.files[remoteObjectId];
+    }
+
+    if (!file) {
+      throw new Error('MEGA file was not found.');
+    }
+
+    await file.delete(false);
+  }
+}
+------------------------------
+
+========== E:\UCM_Repair_Test\unified-cloud-v1\apps\web\src\main.tsx ==========
+  FileText, Download, ExternalLink, ArrowLeft, Maximize2
+} from 'lucide-react';
+import './style.css';
+
+type Page = 'Home' | 'My Files' | 'Gallery' | 'Recent' | 'Trash' | 'Settings';
+type Provider = 'Google Drive' | 'MEGA' | 'OneDrive';
+type WindowsMode = 'standalone' | 'server' | 'client';
+
+type CloudAccount = {
+  id: string;
+  provider: string;
+  displayLabel: string;
+  status: string;
+  lastVerifiedAt?: string;
+};
+
+------------------------------
+const API_BASE = 'http://127.0.0.1:4100';
+const MAX_PREVIEW_SIZE = 50 * 1024 * 1024;
+
+const providers: { name: Provider; description: string }[] = [
+  { name: 'Google Drive', description: 'Google accounts' },
+  { name: 'MEGA', description: 'MEGA accounts' },
+  { name: 'OneDrive', description: 'Microsoft accounts' },
+];
+
+const isTauri = () =>
+  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+function App() {
+  const [page, setPage] = useState<Page>('Home');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+------------------------------
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [expandedProvider, setExpandedProvider] = useState<Provider | null>(null);
+  const [notice, setNotice] = useState('');
+  const [megaConnectOpen, setMegaConnectOpen] = useState(false);
+  const [megaEmail, setMegaEmail] = useState('');
+  const [megaPassword, setMegaPassword] = useState('');
+  const [megaTwoFactor, setMegaTwoFactor] = useState('');
+  const [megaConnectBusy, setMegaConnectBusy] = useState(false);
+  const [googleConnectBusy, setGoogleConnectBusy] = useState(false);
+
+  const [mode, setMode] = useState<WindowsMode>('standalone');
+  const [serverRunning, setServerRunning] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
+------------------------------
+  const [searchText, setSearchText] = useState('');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [expandedProvider, setExpandedProvider] = useState<Provider | null>(null);
+  const [notice, setNotice] = useState('');
+  const [megaConnectOpen, setMegaConnectOpen] = useState(false);
+  const [megaEmail, setMegaEmail] = useState('');
+  const [megaPassword, setMegaPassword] = useState('');
+  const [megaTwoFactor, setMegaTwoFactor] = useState('');
+  const [megaConnectBusy, setMegaConnectBusy] = useState(false);
+  const [googleConnectBusy, setGoogleConnectBusy] = useState(false);
+
+  const [mode, setMode] = useState<WindowsMode>('standalone');
+  const [serverRunning, setServerRunning] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
+  const [modeError, setModeError] = useState('');
+------------------------------
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [expandedProvider, setExpandedProvider] = useState<Provider | null>(null);
+  const [notice, setNotice] = useState('');
+  const [megaConnectOpen, setMegaConnectOpen] = useState(false);
+  const [megaEmail, setMegaEmail] = useState('');
+  const [megaPassword, setMegaPassword] = useState('');
+  const [megaTwoFactor, setMegaTwoFactor] = useState('');
+  const [megaConnectBusy, setMegaConnectBusy] = useState(false);
+  const [googleConnectBusy, setGoogleConnectBusy] = useState(false);
+
+  const [mode, setMode] = useState<WindowsMode>('standalone');
+  const [serverRunning, setServerRunning] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
+  const [modeError, setModeError] = useState('');
+  const [clientUrl, setClientUrl] = useState('http://localhost:4000');
+------------------------------
+  const [expandedProvider, setExpandedProvider] = useState<Provider | null>(null);
+  const [notice, setNotice] = useState('');
+  const [megaConnectOpen, setMegaConnectOpen] = useState(false);
+  const [megaEmail, setMegaEmail] = useState('');
+  const [megaPassword, setMegaPassword] = useState('');
+  const [megaTwoFactor, setMegaTwoFactor] = useState('');
+  const [megaConnectBusy, setMegaConnectBusy] = useState(false);
+  const [googleConnectBusy, setGoogleConnectBusy] = useState(false);
+
+  const [mode, setMode] = useState<WindowsMode>('standalone');
+  const [serverRunning, setServerRunning] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
+  const [modeError, setModeError] = useState('');
+  const [clientUrl, setClientUrl] = useState('http://localhost:4000');
+  const [clientConnected, setClientConnected] = useState(false);
+------------------------------
+  const [notice, setNotice] = useState('');
+  const [megaConnectOpen, setMegaConnectOpen] = useState(false);
+  const [megaEmail, setMegaEmail] = useState('');
+  const [megaPassword, setMegaPassword] = useState('');
+  const [megaTwoFactor, setMegaTwoFactor] = useState('');
+  const [megaConnectBusy, setMegaConnectBusy] = useState(false);
+  const [googleConnectBusy, setGoogleConnectBusy] = useState(false);
+
+  const [mode, setMode] = useState<WindowsMode>('standalone');
+  const [serverRunning, setServerRunning] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
+  const [modeError, setModeError] = useState('');
+  const [clientUrl, setClientUrl] = useState('http://localhost:4000');
+  const [clientConnected, setClientConnected] = useState(false);
+  const [clientServerName, setClientServerName] = useState('');
+------------------------------
+  const [viewerDownloadUrl, setViewerDownloadUrl] = useState('');
+  const viewerUrlRef = useRef<string | null>(null);
+
+  const connectedAccounts: Record<Provider, string[]> = {
+    'Google Drive': accounts
+      .filter((a) => a.provider === 'GOOGLE_DRIVE')
+      .map((a) => a.displayLabel),
+    MEGA: accounts.filter((a) => a.provider === 'MEGA').map((a) => a.displayLabel),
+    OneDrive: accounts.filter((a) => a.provider === 'ONEDRIVE').map((a) => a.displayLabel),
+  };
+
+  const menu = [
+    { name: 'Home' as Page, icon: House },
+    { name: 'My Files' as Page, icon: Folder },
+    { name: 'Gallery' as Page, icon: Images },
+    { name: 'Recent' as Page, icon: Clock3 },
+------------------------------
+
+  const connectedAccounts: Record<Provider, string[]> = {
+    'Google Drive': accounts
+      .filter((a) => a.provider === 'GOOGLE_DRIVE')
+      .map((a) => a.displayLabel),
+    MEGA: accounts.filter((a) => a.provider === 'MEGA').map((a) => a.displayLabel),
+    OneDrive: accounts.filter((a) => a.provider === 'ONEDRIVE').map((a) => a.displayLabel),
+  };
+
+  const menu = [
+    { name: 'Home' as Page, icon: House },
+    { name: 'My Files' as Page, icon: Folder },
+    { name: 'Gallery' as Page, icon: Images },
+    { name: 'Recent' as Page, icon: Clock3 },
+    { name: 'Trash' as Page, icon: Trash2 },
+  ];
+------------------------------
+      setAccounts(data.accounts);
+      setSelectedAccountId((previous) => {
+        if (data.accounts.some((account: CloudAccount) => account.id === previous && account.status === 'CONNECTED')) {
+          return previous;
+        }
+        const preferred = data.accounts.find((account: CloudAccount) => account.provider === 'GOOGLE_DRIVE' && account.status === 'CONNECTED')
+          ?? data.accounts.find((account: CloudAccount) => account.provider === 'MEGA' && account.status === 'CONNECTED');
+        return preferred?.id ?? '';
+      });
+    } catch (error) {
+      console.error('Could not load cloud accounts:', error);
+      setNotice(
+        error instanceof Error
+          ? `Could not load accounts: ${error.message}`
+          : 'Could not load cloud accounts.'
+      );
+------------------------------
+      setSelectedAccountId((previous) => {
+        if (data.accounts.some((account: CloudAccount) => account.id === previous && account.status === 'CONNECTED')) {
+          return previous;
+        }
+        const preferred = data.accounts.find((account: CloudAccount) => account.provider === 'GOOGLE_DRIVE' && account.status === 'CONNECTED')
+          ?? data.accounts.find((account: CloudAccount) => account.provider === 'MEGA' && account.status === 'CONNECTED');
+        return preferred?.id ?? '';
+      });
+    } catch (error) {
+      console.error('Could not load cloud accounts:', error);
+      setNotice(
+        error instanceof Error
+          ? `Could not load accounts: ${error.message}`
+          : 'Could not load cloud accounts.'
+      );
+    } finally {
+------------------------------
+
+  const loadFiles = useCallback(async (accountId?: string, parentId?: string) => {
+    const connectedAccounts = accounts.filter(
+      (account) =>
+        account.status === 'CONNECTED' &&
+        (account.provider === 'GOOGLE_DRIVE' || account.provider === 'MEGA')
+    );
+
+    const isUnifiedRoot = !accountId && parentId === 'root';
+    const requestedAccount = accountId
+      ? connectedAccounts.find((account) => account.id === accountId)
+      : connectedAccounts.find((account) => account.id === selectedAccountId)
+        ?? connectedAccounts[0];
+    const targetAccounts = isUnifiedRoot
+      ? connectedAccounts
+      : requestedAccount
+------------------------------
+        ? [requestedAccount]
+        : [];
+
+    if (targetAccounts.length === 0) {
+      setFiles([]);
+      setFilesError('Connect a Google Drive or MEGA account to see your files.');
+      return;
+    }
+
+    setFilesLoading(true);
+    setFilesError('');
+
+    const fetchAccountFiles = async (account: CloudAccount) => {
+      const endpoint = account.provider === 'MEGA' ? '/mega/files' : '/drive/files';
+      const url = new URL(`${API_BASE}${endpoint}`);
+      url.searchParams.set('accountId', account.id);
+------------------------------
+
+    setFilesLoading(true);
+    setFilesError('');
+
+    const fetchAccountFiles = async (account: CloudAccount) => {
+      const endpoint = account.provider === 'MEGA' ? '/mega/files' : '/drive/files';
+      const url = new URL(`${API_BASE}${endpoint}`);
+      url.searchParams.set('accountId', account.id);
+      url.searchParams.set('pageSize', '100');
+      if (parentId && !(account.provider === 'MEGA' && parentId === 'root')) {
+        url.searchParams.set('parentId', parentId);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: 'application/json' },
+      });
+------------------------------
+    const fetchAccountFiles = async (account: CloudAccount) => {
+      const endpoint = account.provider === 'MEGA' ? '/mega/files' : '/drive/files';
+      const url = new URL(`${API_BASE}${endpoint}`);
+      url.searchParams.set('accountId', account.id);
+      url.searchParams.set('pageSize', '100');
+      if (parentId && !(account.provider === 'MEGA' && parentId === 'root')) {
+        url.searchParams.set('parentId', parentId);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || `Server returned HTTP ${response.status}`);
+------------------------------
+    const targetAccountId = currentFolderAccountId ?? selectedAccountId;
+    const account = accounts.find(
+      (item) => item.id === targetAccountId && item.status === 'CONNECTED'
+    );
+
+    if (!account || (account.provider !== 'GOOGLE_DRIVE' && account.provider !== 'MEGA')) {
+      setNotice('Connect or select a supported cloud account first.');
+      return;
+    }
+
+    try {
+      const folderEndpoint = account.provider === 'MEGA' ? '/mega/folders' : '/drive/folders';
+      const response = await fetch(`${API_BASE}${folderEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+------------------------------
+      setNotice('Connect or select a supported cloud account first.');
+      return;
+    }
+
+    try {
+      const folderEndpoint = account.provider === 'MEGA' ? '/mega/folders' : '/drive/folders';
+      const response = await fetch(`${API_BASE}${folderEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          accountId: account.id,
+          name,
+          ...(currentFolderId ? { parentId: currentFolderId } : {}),
+        }),
+      });
+
+------------------------------
+    setGoogleConnectBusy(true);
+    setNotice('Opening Google sign-in...');
+
+    const existingGoogleIds = new Set(
+      accounts
+        .filter((account) => account.provider === 'GOOGLE_DRIVE')
+        .map((account) => account.id)
+    );
+
+    try {
+      await openUrl(API_BASE + '/auth/google/start');
+      setNotice('Complete Google sign-in in your browser. Waiting for account connection...');
+
+      const deadline = Date.now() + 5 * 60 * 1000;
+
+      while (Date.now() < deadline) {
+------------------------------
+          continue;
+        }
+
+        const newAccount = data.accounts.find(
+          (account: CloudAccount) =>
+            account.provider === 'GOOGLE_DRIVE' &&
+            account.status === 'CONNECTED' &&
+            !existingGoogleIds.has(account.id)
+        );
+
+        if (newAccount) {
+          setAccounts(data.accounts);
+          setSelectedAccountId(newAccount.id);
+          setNotice('Google Drive connected: ' + newAccount.displayLabel);
+          return;
+        }
+------------------------------
+  }
+
+  function addAccount(provider: Provider) {
+    setNotice('');
+
+    if (provider === 'MEGA') {
+      setMegaConnectOpen((previous) => !previous);
+      return;
+    }
+
+    if (provider === 'Google Drive') {
+      void connectGoogleAccount();
+      return;
+    }
+
+    setNotice(provider + ' integration will be added in a future phase.');
+------------------------------
+
+  function addAccount(provider: Provider) {
+    setNotice('');
+
+    if (provider === 'MEGA') {
+      setMegaConnectOpen((previous) => !previous);
+      return;
+    }
+
+    if (provider === 'Google Drive') {
+      void connectGoogleAccount();
+      return;
+    }
+
+    setNotice(provider + ' integration will be added in a future phase.');
+  }
+------------------------------
+      return;
+    }
+
+    setNotice(provider + ' integration will be added in a future phase.');
+  }
+  async function connectMegaAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!megaEmail.trim() || !megaPassword) {
+      setNotice('MEGA email and password are required.');
+      return;
+    }
+
+    setMegaConnectBusy(true);
+    setNotice('');
+
+------------------------------
+    setNotice(provider + ' integration will be added in a future phase.');
+  }
+  async function connectMegaAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!megaEmail.trim() || !megaPassword) {
+      setNotice('MEGA email and password are required.');
+      return;
+    }
+
+    setMegaConnectBusy(true);
+    setNotice('');
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/mega/connect`, {
+        method: 'POST',
+------------------------------
+  }
+  async function connectMegaAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!megaEmail.trim() || !megaPassword) {
+      setNotice('MEGA email and password are required.');
+      return;
+    }
+
+    setMegaConnectBusy(true);
+    setNotice('');
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/mega/connect`, {
+        method: 'POST',
+        headers: {
+------------------------------
+    if (!megaEmail.trim() || !megaPassword) {
+      setNotice('MEGA email and password are required.');
+      return;
+    }
+
+    setMegaConnectBusy(true);
+    setNotice('');
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/mega/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+------------------------------
+
+    setMegaConnectBusy(true);
+    setNotice('');
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/mega/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: megaEmail.trim(),
+          password: megaPassword,
+          ...(megaTwoFactor.trim()
+            ? { secondFactorCode: megaTwoFactor.trim() }
+------------------------------
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: megaEmail.trim(),
+          password: megaPassword,
+          ...(megaTwoFactor.trim()
+            ? { secondFactorCode: megaTwoFactor.trim() }
+            : {}),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status !== 'success') {
+------------------------------
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: megaEmail.trim(),
+          password: megaPassword,
+          ...(megaTwoFactor.trim()
+            ? { secondFactorCode: megaTwoFactor.trim() }
+            : {}),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(
+------------------------------
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: megaEmail.trim(),
+          password: megaPassword,
+          ...(megaTwoFactor.trim()
+            ? { secondFactorCode: megaTwoFactor.trim() }
+            : {}),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(
+          data.message || `MEGA connection failed (HTTP ${response.status}).`
+------------------------------
+        },
+        body: JSON.stringify({
+          email: megaEmail.trim(),
+          password: megaPassword,
+          ...(megaTwoFactor.trim()
+            ? { secondFactorCode: megaTwoFactor.trim() }
+            : {}),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(
+          data.message || `MEGA connection failed (HTTP ${response.status}).`
+        );
+------------------------------
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(
+          data.message || `MEGA connection failed (HTTP ${response.status}).`
+        );
+      }
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+------------------------------
+        throw new Error(
+          data.message || `MEGA connection failed (HTTP ${response.status}).`
+        );
+      }
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+------------------------------
+          data.message || `MEGA connection failed (HTTP ${response.status}).`
+        );
+      }
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+------------------------------
+        );
+      }
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+------------------------------
+      }
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+    }
+------------------------------
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+    }
+  }
+------------------------------
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+    }
+  }
+
+  async function openGoogleDrive(file: DriveFile) {
+    if (file.provider !== 'GOOGLE_DRIVE') {
+------------------------------
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+    }
+  }
+
+  async function openGoogleDrive(file: DriveFile) {
+    if (file.provider !== 'GOOGLE_DRIVE') {
+      setNotice('External links are only available for Google Drive files.');
+      return;
+------------------------------
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+    }
+  }
+
+  async function openGoogleDrive(file: DriveFile) {
+    if (file.provider !== 'GOOGLE_DRIVE') {
+      setNotice('External links are only available for Google Drive files.');
+      return;
+    }
+    if (!file.webViewLink) {
+      setNotice('Google Drive link is not available for this file.');
+------------------------------
+      setMegaConnectBusy(false);
+    }
+  }
+
+  async function openGoogleDrive(file: DriveFile) {
+    if (file.provider !== 'GOOGLE_DRIVE') {
+      setNotice('External links are only available for Google Drive files.');
+      return;
+    }
+    if (!file.webViewLink) {
+      setNotice('Google Drive link is not available for this file.');
+      return;
+    }
+
+    try {
+      if (isTauri()) {
+------------------------------
+        item.id === file.accountId &&
+        item.status === 'CONNECTED' &&
+        item.provider === file.provider
+    );
+
+    if (!account || !['GOOGLE_DRIVE', 'MEGA'].includes(account.provider)) {
+      setNotice('The cloud account that owns this file is not connected.');
+      return;
+    }
+
+    closeViewer();
+    setViewerLoading(true);
+    setViewerError('');
+
+    try {
+      const contentEndpoint = account.provider === 'MEGA'
+------------------------------
+    closeViewer();
+    setViewerLoading(true);
+    setViewerError('');
+
+    try {
+      const contentEndpoint = account.provider === 'MEGA'
+        ? '/mega/files'
+        : '/drive/files';
+      const url = new URL(
+        `${API_BASE}${contentEndpoint}/${encodeURIComponent(file.id)}/content`
+      );
+      url.searchParams.set('accountId', account.id);
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: '*/*' },
+      });
+------------------------------
+    setViewerLoading(true);
+    setViewerError('');
+
+    try {
+      const contentEndpoint = account.provider === 'MEGA'
+        ? '/mega/files'
+        : '/drive/files';
+      const url = new URL(
+        `${API_BASE}${contentEndpoint}/${encodeURIComponent(file.id)}/content`
+      );
+      url.searchParams.set('accountId', account.id);
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: '*/*' },
+      });
+
+------------------------------
+    control.paused = true;
+    updateTransfer(id, { status: 'paused' });
+
+    try {
+      if (control.transferId) {
+        const uploadBase = control.uploadProvider === 'MEGA' ? '/mega' : '/drive';
+        const response = await fetch(
+          `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(control.transferId)}/pause`,
+          { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Could not pause transfer.');
+      }
+    } catch (error) {
+      control.paused = false;
+      updateTransfer(id, {
+        status: 'uploading',
+------------------------------
+    const control = transferControlsRef.current.get(id);
+    if (!control || control.cancelled || !control.paused) return;
+
+    try {
+      if (control.transferId) {
+        const uploadBase = control.uploadProvider === 'MEGA' ? '/mega' : '/drive';
+        const response = await fetch(
+          `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(control.transferId)}/resume`,
+          { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Could not resume transfer.');
+      }
+
+      control.paused = false;
+      updateTransfer(id, { status: 'uploading', error: undefined });
+    } catch (error) {
+------------------------------
+
+    updateTransfer(id, { status: 'cancelled' });
+
+    if (control.transferId) {
+      try {
+        const uploadBase = control.uploadProvider === 'MEGA' ? '/mega' : '/drive';
+        await fetch(
+          `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(control.transferId)}/cancel`,
+          { method: 'POST' }
+        );
+      } catch {
+        updateTransfer(id, {
+          error: 'Cancellation requested, but server confirmation was unavailable.',
+        });
+      }
+    }
+------------------------------
+          error: 'Cancellation requested, but server confirmation was unavailable.',
+        });
+      }
+    }
+    if (control.downloadSessionId) {
+      const downloadBase = control.downloadProvider === 'MEGA' ? '/mega' : '/drive';
+      await fetch(
+        `${API_BASE}${downloadBase}/transfers/download/${encodeURIComponent(control.downloadSessionId)}`,
+        { method: 'DELETE' }
+      ).catch(() => undefined);
+    }
+  }
+
+  async function uploadSelectedFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const selectedFiles = Array.from(input.files ?? []);
+------------------------------
+        { method: 'DELETE' }
+      ).catch(() => undefined);
+    }
+  }
+
+  async function uploadSelectedFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const selectedFiles = Array.from(input.files ?? []);
+    if (selectedFiles.length === 0) return;
+
+    let account: CloudAccount | undefined;
+
+    // Uploads at the unified root are allocated by the backend using live
+    // provider quotas. Uploads inside a provider-owned folder stay in that
+    // folder's account so provider-native folder IDs remain valid.
+    if (currentFolderId) {
+------------------------------
+    const selectedFiles = Array.from(input.files ?? []);
+    if (selectedFiles.length === 0) return;
+
+    let account: CloudAccount | undefined;
+
+    // Uploads at the unified root are allocated by the backend using live
+    // provider quotas. Uploads inside a provider-owned folder stay in that
+    // folder's account so provider-native folder IDs remain valid.
+    if (currentFolderId) {
+      account = accounts.find(
+        (item) => item.id === currentFolderAccountId &&
+          (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA') &&
+          item.status === 'CONNECTED'
+      );
+    } else {
+      try {
+------------------------------
+    // provider quotas. Uploads inside a provider-owned folder stay in that
+    // folder's account so provider-native folder IDs remain valid.
+    if (currentFolderId) {
+      account = accounts.find(
+        (item) => item.id === currentFolderAccountId &&
+          (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA') &&
+          item.status === 'CONNECTED'
+      );
+    } else {
+      try {
+        const allocationResponse = await fetch(`${API_BASE}/storage/allocate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ totalBytes: selectedFiles.reduce((total, file) => total + file.size, 0) }),
+        });
+        const allocationData = await allocationResponse.json().catch(() => ({}));
+------------------------------
+          (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA') &&
+          item.status === 'CONNECTED'
+      );
+    } else {
+      try {
+        const allocationResponse = await fetch(`${API_BASE}/storage/allocate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ totalBytes: selectedFiles.reduce((total, file) => total + file.size, 0) }),
+        });
+        const allocationData = await allocationResponse.json().catch(() => ({}));
+        if (!allocationResponse.ok || allocationData.status !== 'success' || !allocationData.allocation?.accountId) {
+          throw new Error(allocationData.message || 'No suitable cloud storage account is available.');
+        }
+        account = accounts.find((item) => item.id === allocationData.allocation.accountId && item.status === 'CONNECTED');
+      } catch (error) {
+------------------------------
+    }
+
+    if (!account) {
+      setUploadMessage(currentFolderId
+        ? 'The cloud account owning this folder is not connected.'
+        : 'No connected Google Drive or MEGA account is available.');
+      input.value = '';
+      return;
+    }
+
+    const uploadBase = account.provider === 'MEGA' ? '/mega' : '/drive';
+
+    setUploading(true);
+    setUploadMessage(`Automatically selected ${account.displayLabel} (${account.provider}). Adding ${selectedFiles.length} file(s) to Transfer Manager...`);
+
+    const jobs = selectedFiles.map((selectedFile) => async () => {
+------------------------------
+        : 'No connected Google Drive or MEGA account is available.');
+      input.value = '';
+      return;
+    }
+
+    const uploadBase = account.provider === 'MEGA' ? '/mega' : '/drive';
+
+    setUploading(true);
+    setUploadMessage(`Automatically selected ${account.displayLabel} (${account.provider}). Adding ${selectedFiles.length} file(s) to Transfer Manager...`);
+
+    const jobs = selectedFiles.map((selectedFile) => async () => {
+      const localId = crypto.randomUUID();
+      const control = { paused: false, cancelled: false, transferId: undefined as string | undefined, uploadProvider: account.provider };
+      transferControlsRef.current.set(localId, control);
+
+      setTransfers((previous) => [
+------------------------------
+      let transferId: string | undefined;
+
+      try {
+        if (control.cancelled) return;
+
+        const initResponse = await fetch(`${API_BASE}${uploadBase}/transfers/upload/init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            accountId: account.id,
+            fileName: selectedFile.name,
+            mimeType: selectedFile.type || 'application/octet-stream',
+            totalBytes: selectedFile.size,
+            ...(currentFolderId ? { parentId: currentFolderId } : {}),
+          }),
+        });
+------------------------------
+  }
+
+
+  async function downloadFile(file: DriveFile) {
+    if (file.isFolder || file.mimeType === 'application/vnd.google-apps.folder') return;
+    if (file.provider !== 'GOOGLE_DRIVE' && file.provider !== 'MEGA') {
+      setNotice('Downloads are not available for this cloud provider yet.');
+      return;
+    }
+    const account = accounts.find(
+      (item) =>
+        item.id === file.accountId &&
+        item.provider === file.provider &&
+        item.status === 'CONNECTED'
+    );
+    if (!account) {
+------------------------------
+        let handle: Awaited<ReturnType<typeof openLocalFile>> | undefined;
+        let sessionId: string | undefined;
+
+        try {
+          updateTransfer(task.localId, { status: control.paused ? 'paused' : 'uploading', error: undefined });
+          const downloadBase = task.file.provider === 'MEGA' ? '/mega' : '/drive';
+          const initResponse = await fetch(`${API_BASE}${downloadBase}/transfers/download/init`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ accountId: task.accountId, fileId: task.file.id }),
+          });
+          const initData = await initResponse.json().catch(() => ({}));
+          if (!initResponse.ok || initData.status !== 'success' || !initData.transfer?.transferId) {
+            throw new Error(initData.message || 'Could not initialize download.');
+          }
+
+------------------------------
+        } finally {
+          if (handle) {
+            try { await handle.close(); } catch { /* close best-effort */ }
+          }
+          if (sessionId) {
+            const downloadBase = task.file.provider === 'MEGA' ? '/mega' : '/drive';
+            await fetch(`${API_BASE}${downloadBase}/transfers/download/${encodeURIComponent(sessionId)}`, {
+              method: 'DELETE',
+            }).catch(() => undefined);
+          }
+          control.downloadSessionId = undefined;
+        }
+      }
+    } finally {
+      downloadRunningRef.current = false;
+      if (downloadQueueRef.current.length > 0) void runDownloadQueue();
+------------------------------
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={uploadSelectedFile}
+        />
+
+        <nav>
+          {menu.map((item) => {
+            const Icon = item.icon;
+            return (
+              <a
+                key={item.name}
+                href="#"
+                className={page === item.name ? 'active' : ''}
+------------------------------
+
+                {providers.map((provider) => {
+                  const names = connectedAccounts[provider.name];
+                  const providerAccounts = accounts.filter((account) =>
+                    provider.name === 'Google Drive'
+                      ? account.provider === 'GOOGLE_DRIVE'
+                      : provider.name === 'MEGA'
+                        ? account.provider === 'MEGA'
+                        : account.provider === 'ONEDRIVE'
+                  );
+                  const expanded = expandedProvider === provider.name;
+
+                  return (
+                    <div key={provider.name} style={{ border: '1px solid #303b37', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+                      <button
+                        onClick={() => toggleProvider(provider.name)}
+------------------------------
+                {providers.map((provider) => {
+                  const names = connectedAccounts[provider.name];
+                  const providerAccounts = accounts.filter((account) =>
+                    provider.name === 'Google Drive'
+                      ? account.provider === 'GOOGLE_DRIVE'
+                      : provider.name === 'MEGA'
+                        ? account.provider === 'MEGA'
+                        : account.provider === 'ONEDRIVE'
+                  );
+                  const expanded = expandedProvider === provider.name;
+
+                  return (
+                    <div key={provider.name} style={{ border: '1px solid #303b37', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+                      <button
+                        onClick={() => toggleProvider(provider.name)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: expanded ? '#202b26' : 'transparent', color: '#f2f5f4', border: 0, cursor: 'pointer', textAlign: 'left' }}
+------------------------------
+                  const names = connectedAccounts[provider.name];
+                  const providerAccounts = accounts.filter((account) =>
+                    provider.name === 'Google Drive'
+                      ? account.provider === 'GOOGLE_DRIVE'
+                      : provider.name === 'MEGA'
+                        ? account.provider === 'MEGA'
+                        : account.provider === 'ONEDRIVE'
+                  );
+                  const expanded = expandedProvider === provider.name;
+
+                  return (
+                    <div key={provider.name} style={{ border: '1px solid #303b37', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+                      <button
+                        onClick={() => toggleProvider(provider.name)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: expanded ? '#202b26' : 'transparent', color: '#f2f5f4', border: 0, cursor: 'pointer', textAlign: 'left' }}
+                      >
+------------------------------
+                              </span>
+                            </div>
+                          )) : (
+                            <p style={{ fontSize: '12px', color: '#9ca9a3', margin: '2px 0 10px' }}>No connected accounts yet.</p>
+                          )}
+                          {provider.name === 'MEGA' && megaConnectOpen && (
+                            <form
+                              onSubmit={connectMegaAccount}
+                              style={{
+                                padding: '12px',
+                                marginBottom: '10px',
+                                background: '#101519',
+                                border: '1px solid #35423e',
+                                borderRadius: '9px',
+                              }}
+                            >
+------------------------------
+                          )) : (
+                            <p style={{ fontSize: '12px', color: '#9ca9a3', margin: '2px 0 10px' }}>No connected accounts yet.</p>
+                          )}
+                          {provider.name === 'MEGA' && megaConnectOpen && (
+                            <form
+                              onSubmit={connectMegaAccount}
+                              style={{
+                                padding: '12px',
+                                marginBottom: '10px',
+                                background: '#101519',
+                                border: '1px solid #35423e',
+                                borderRadius: '9px',
+                              }}
+                            >
+                              <b style={{ display: 'block', fontSize: '13px', marginBottom: '12px' }}>
+                                Connect MEGA account
+------------------------------
+                                border: '1px solid #35423e',
+                                borderRadius: '9px',
+                              }}
+                            >
+                              <b style={{ display: 'block', fontSize: '13px', marginBottom: '12px' }}>
+                                Connect MEGA account
+                              </b>
+                              <label style={{ display: 'block', fontSize: '12px', color: '#b8c5be', marginBottom: '5px' }}>
+                                Email
+                              </label>
+                              <input
+                                type="email"
+                                autoComplete="username"
+                                required
+                                value={megaEmail}
+                                onChange={(event) => setMegaEmail(event.target.value)}
+------------------------------
+                              </label>
+                              <input
+                                type="email"
+                                autoComplete="username"
+                                required
+                                value={megaEmail}
+                                onChange={(event) => setMegaEmail(event.target.value)}
+                                placeholder="you@example.com"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+------------------------------
+                              <input
+                                type="email"
+                                autoComplete="username"
+                                required
+                                value={megaEmail}
+                                onChange={(event) => setMegaEmail(event.target.value)}
+                                placeholder="you@example.com"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+                                  borderRadius: '7px',
+------------------------------
+                              </label>
+                              <input
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={megaPassword}
+                                onChange={(event) => setMegaPassword(event.target.value)}
+                                placeholder="MEGA password"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+------------------------------
+                              <input
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={megaPassword}
+                                onChange={(event) => setMegaPassword(event.target.value)}
+                                placeholder="MEGA password"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+                                  borderRadius: '7px',
+------------------------------
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={megaPassword}
+                                onChange={(event) => setMegaPassword(event.target.value)}
+                                placeholder="MEGA password"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+                                  borderRadius: '7px',
+                                }}
+------------------------------
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                value={megaTwoFactor}
+                                onChange={(event) => setMegaTwoFactor(event.target.value)}
+                                placeholder="6-digit code"
+                                maxLength={8}
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '12px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+------------------------------
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                value={megaTwoFactor}
+                                onChange={(event) => setMegaTwoFactor(event.target.value)}
+                                placeholder="6-digit code"
+                                maxLength={8}
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '12px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+------------------------------
+                                  borderRadius: '7px',
+                                }}
+                              />
+                              <button
+                                type="submit"
+                                disabled={megaConnectBusy}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px',
+                                  background: '#203b30',
+                                  color: '#65dba5',
+                                  border: '1px solid #35634d',
+                                  borderRadius: '8px',
+                                  cursor: megaConnectBusy ? 'wait' : 'pointer',
+                                  fontWeight: 600,
+                                }}
+------------------------------
+                                  padding: '10px',
+                                  background: '#203b30',
+                                  color: '#65dba5',
+                                  border: '1px solid #35634d',
+                                  borderRadius: '8px',
+                                  cursor: megaConnectBusy ? 'wait' : 'pointer',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {megaConnectBusy ? 'Connecting...' : 'Connect MEGA'}
+                              </button>
+                            </form>
+                          )}
+
+                          <button
+
+------------------------------
+                                  borderRadius: '8px',
+                                  cursor: megaConnectBusy ? 'wait' : 'pointer',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {megaConnectBusy ? 'Connecting...' : 'Connect MEGA'}
+                              </button>
+                            </form>
+                          )}
+
+                          <button
+
+                            disabled={provider.name === 'Google Drive' && googleConnectBusy}
+
+                            onClick={() => addAccount(provider.name)}
+                            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '7px', padding: '9px', background: '#203b30', color: '#65dba5', border: '1px solid #35634d', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+------------------------------
+                            disabled={provider.name === 'Google Drive' && googleConnectBusy}
+
+                            onClick={() => addAccount(provider.name)}
+                            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '7px', padding: '9px', background: '#203b30', color: '#65dba5', border: '1px solid #35634d', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                          >
+                            <Plus size={16} /> {provider.name === 'MEGA' && megaConnectOpen ? 'Close form' : provider.name === 'Google Drive' && googleConnectBusy ? 'Connecting...' : 'Add Account'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {notice && <p style={{ fontSize: '12px', color: '#f0c879', lineHeight: 1.5, margin: '12px 2px 2px' }}>{notice}</p>}
+                <button onClick={() => void loadAccounts()} style={{ background: 'transparent', color: '#65dba5', border: 0, cursor: 'pointer', fontSize: '12px', padding: '6px 2px' }}>
+                  <RefreshCw size={13} style={{ verticalAlign: 'middle', marginRight: '5px' }} /> Refresh accounts
+------------------------------
+              </div>
+            ) : (
+              <div className="empty">
+                <div className="empty-icon"><Cloud size={28} /></div>
+                <b>Your cloud library is waiting</b>
+                <p>Connect Google Drive and MEGA to get started.</p>
+                <button className="secondary" onClick={() => { setProfileOpen(true); setExpandedProvider(null); }}>
+                  <Plus size={16} /> Connect a cloud account
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {(page === 'My Files' || page === 'Gallery' || page === 'Recent') && (
+          <section style={{ marginTop: '20px' }}>
+------------------------------
+              </div>
+            )}
+            <div className="section-head">
+              <div>
+                <h2>{page === 'Gallery' ? 'Photos and videos' : page === 'Recent' ? 'Recent files' : 'All cloud files'}</h2>
+                <p className="muted">{page === 'My Files' ? 'Files from all connected Google Drive and MEGA accounts.' : 'Files from your selected cloud account.'}</p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {page === 'My Files' && <button className="secondary" onClick={() => void createFolder()}><Folder size={15} /> New folder</button>}
+                <button className="secondary" disabled={filesLoading} onClick={() => void loadFiles(page === 'My Files' ? (currentFolderAccountId ?? undefined) : undefined, page === 'My Files' ? (currentFolderId ?? 'root') : undefined)}><RefreshCw size={15} /> Refresh</button>
+                <button className="secondary" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> Upload</button>
+              </div>
+            </div>
+
+            {uploadMessage && (
+              <p style={{ color: '#9ca9a3', fontSize: '13px' }}>{uploadMessage}</p>
+------------------------------
+
+            {!filesLoading && !filesError && visibleFiles.length === 0 && (
+              <div className="empty">
+                <div className="empty-icon"><Folder size={28} /></div>
+                <b>{files.length === 0 ? 'No files found in connected accounts' : 'No matching files'}</b>
+                <p>{files.length === 0 ? 'Your connected Google Drive and MEGA accounts have no files in this location.' : 'Try another search term.'}</p>
+                <button className="secondary" onClick={() => fileInputRef.current?.click()}><Upload size={16} /> Upload a file</button>
+              </div>
+            )}
+
+            {!filesLoading && !filesError && visibleFiles.length > 0 && (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {visibleFiles.map((file) => (
+                  <div
+                    key={`${file.provider}:${file.accountId}:${file.id}`}
+                    onDoubleClick={() => void openFile(file)}
+------------------------------
+                      style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+                    >
+                      <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>{file.name}</b>
+                      <small style={{ color: '#9ca9a3' }}>
+                        {formatFileSize(file.size)}{file.modifiedTime ? ` � ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
+                        {' � '}{file.provider === 'GOOGLE_DRIVE' ? 'Google Drive' : file.provider === 'MEGA' ? 'MEGA' : file.provider}
+                        {' � '}{accounts.find((account) => account.id === file.accountId)?.displayLabel ?? 'Cloud account'}
+                      </small>
+                    </div>
+                    {file.provider === 'GOOGLE_DRIVE' && file.webViewLink && (
+                      <button title="Open in Google Drive" onClick={() => void openGoogleDrive(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                        <ExternalLink size={17} />
+                      </button>
+                    )}
+                    {(file.provider === 'GOOGLE_DRIVE' || file.provider === 'MEGA') && !file.isFolder && file.mimeType !== 'application/vnd.google-apps.folder' && (
+                      <>
+------------------------------
+                        {formatFileSize(file.size)}{file.modifiedTime ? ` � ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
+                        {' � '}{file.provider === 'GOOGLE_DRIVE' ? 'Google Drive' : file.provider === 'MEGA' ? 'MEGA' : file.provider}
+                        {' � '}{accounts.find((account) => account.id === file.accountId)?.displayLabel ?? 'Cloud account'}
+                      </small>
+                    </div>
+                    {file.provider === 'GOOGLE_DRIVE' && file.webViewLink && (
+                      <button title="Open in Google Drive" onClick={() => void openGoogleDrive(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                        <ExternalLink size={17} />
+                      </button>
+                    )}
+                    {(file.provider === 'GOOGLE_DRIVE' || file.provider === 'MEGA') && !file.isFolder && file.mimeType !== 'application/vnd.google-apps.folder' && (
+                      <>
+                        <button title="Download file" onClick={() => void downloadFile(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                          <Download size={17} />
+                        </button>
+                        <button title="Open preview" onClick={() => void openFile(file)} style={{ background: 'transparent', border: 0, color: '#c4cfca', cursor: 'pointer' }}>
+------------------------------
+                    {file.provider === 'GOOGLE_DRIVE' && file.webViewLink && (
+                      <button title="Open in Google Drive" onClick={() => void openGoogleDrive(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                        <ExternalLink size={17} />
+                      </button>
+                    )}
+                    {(file.provider === 'GOOGLE_DRIVE' || file.provider === 'MEGA') && !file.isFolder && file.mimeType !== 'application/vnd.google-apps.folder' && (
+                      <>
+                        <button title="Download file" onClick={() => void downloadFile(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                          <Download size={17} />
+                        </button>
+                        <button title="Open preview" onClick={() => void openFile(file)} style={{ background: 'transparent', border: 0, color: '#c4cfca', cursor: 'pointer' }}>
+                          <Maximize2 size={17} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+------------------------------
+                    title="Download file"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid #35423e', borderRadius: '7px', padding: '7px 10px', color: '#c4cfca', cursor: 'pointer' }}
+                  >
+                    <Download size={16} /> <span style={{ fontSize: '12px' }}>Download</span>
+                  </button>
+                  {viewer.file.provider === 'GOOGLE_DRIVE' && viewer.file.webViewLink && (
+                    <button
+                      onClick={() => void openGoogleDrive(viewer.file)}
+                      title="Open in Google Drive"
+                      style={{ display: 'flex', alignItems: 'center', background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}
+                    >
+                      <ExternalLink size={18} />
+                    </button>
+                  )}
+                </>
+              )}
+------------------------------

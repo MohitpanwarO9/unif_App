@@ -1,0 +1,2241 @@
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { save } from '@tauri-apps/plugin-dialog';
+import { open as openLocalFile, SeekMode } from '@tauri-apps/plugin-fs';
+import {
+  Cloud, Folder, House, Images, Clock3, Trash2, Settings,
+  Search, Upload, UserRound, Plus, HardDrive, ChevronRight,
+  ChevronDown, X, Server, Monitor, Laptop, Globe, Power,
+  RefreshCw, Wifi, WifiOff, File, FileImage, FileVideo,
+  FileText, Download, ExternalLink, ArrowLeft, Maximize2
+} from 'lucide-react';
+import './style.css';
+
+type Page = 'Home' | 'My Files' | 'Gallery' | 'Recent' | 'Trash' | 'Settings';
+type Provider = 'Google Drive' | 'MEGA' | 'OneDrive';
+type WindowsMode = 'standalone' | 'server' | 'client';
+
+type CloudAccount = {
+  id: string;
+  provider: string;
+  displayLabel: string;
+  status: string;
+  lastVerifiedAt?: string;
+};
+
+type DriveFile = {
+  id: string;
+  name: string;
+  accountId: string;
+  provider: string;
+  mimeType?: string;
+  size?: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+  webContentLink?: string;
+  thumbnailLink?: string;
+  isFolder?: boolean;
+};
+
+type ViewerFile = {
+  file: DriveFile;
+  url: string;
+  mimeType: string;
+  fileName: string;
+  textContent?: string;
+};
+
+const API_BASE = 'http://127.0.0.1:4100';
+const MAX_PREVIEW_SIZE = 50 * 1024 * 1024;
+
+const providers: { name: Provider; description: string }[] = [
+  { name: 'Google Drive', description: 'Google accounts' },
+  { name: 'MEGA', description: 'MEGA accounts' },
+  { name: 'OneDrive', description: 'Microsoft accounts' },
+];
+
+const isTauri = () =>
+  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+function App() {
+  const [page, setPage] = useState<Page>('Home');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [expandedProvider, setExpandedProvider] = useState<Provider | null>(null);
+  const [notice, setNotice] = useState('');
+  const [megaConnectOpen, setMegaConnectOpen] = useState(false);
+  const [megaEmail, setMegaEmail] = useState('');
+  const [megaPassword, setMegaPassword] = useState('');
+  const [megaTwoFactor, setMegaTwoFactor] = useState('');
+  const [megaConnectBusy, setMegaConnectBusy] = useState(false);
+  const [googleConnectBusy, setGoogleConnectBusy] = useState(false);
+
+  const [mode, setMode] = useState<WindowsMode>('standalone');
+  const [serverRunning, setServerRunning] = useState(false);
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState('');
+  const [modeError, setModeError] = useState('');
+  const [clientUrl, setClientUrl] = useState('http://localhost:4000');
+  const [clientConnected, setClientConnected] = useState(false);
+  const [clientServerName, setClientServerName] = useState('');
+
+  const [accounts, setAccounts] = useState<CloudAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [files, setFiles] = useState<DriveFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesError, setFilesError] = useState('');
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [currentFolderAccountId, setCurrentFolderAccountId] = useState<string | null>(null);
+  const [folderPath, setFolderPath] = useState<{
+    id: string;
+    name: string;
+    accountId: string;
+    provider: string;
+  }[]>([]);
+  type TransferStatus = 'queued' | 'uploading' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  type TransferDirection = 'upload' | 'download';
+  type TransferRow = {
+    id: string;
+    direction: TransferDirection;
+    name: string;
+    size: number;
+    uploadedBytes: number;
+    progress: number;
+    speed: number;
+    eta: number;
+    status: TransferStatus;
+    error?: string;
+    transferId?: string;
+  };
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [transfers, setTransfers] = useState<TransferRow[]>([]);
+  const transferControlsRef = useRef(new Map<string, {
+    paused: boolean;
+    cancelled: boolean;
+    transferId?: string;
+    downloadSessionId?: string;
+    downloadProvider?: string;
+    uploadProvider?: string;
+  }>());
+  const downloadQueueRef = useRef<Array<{
+    localId: string;
+    file: DriveFile;
+    accountId: string;
+    path: string;
+  }>>([]);
+  const downloadRunningRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [viewer, setViewer] = useState<ViewerFile | null>(null);
+  const [viewerLoading, setViewerLoading] = useState(false);
+  const [viewerError, setViewerError] = useState('');
+  const [viewerDownloadUrl, setViewerDownloadUrl] = useState('');
+  const viewerUrlRef = useRef<string | null>(null);
+
+  const connectedAccounts: Record<Provider, string[]> = {
+    'Google Drive': accounts
+      .filter((a) => a.provider === 'GOOGLE_DRIVE')
+      .map((a) => a.displayLabel),
+    MEGA: accounts.filter((a) => a.provider === 'MEGA').map((a) => a.displayLabel),
+    OneDrive: accounts.filter((a) => a.provider === 'ONEDRIVE').map((a) => a.displayLabel),
+  };
+
+  const menu = [
+    { name: 'Home' as Page, icon: House },
+    { name: 'My Files' as Page, icon: Folder },
+    { name: 'Gallery' as Page, icon: Images },
+    { name: 'Recent' as Page, icon: Clock3 },
+    { name: 'Trash' as Page, icon: Trash2 },
+  ];
+
+  const pageInfo: Record<Page, { title: string; subtitle: string }> = {
+    Home: { title: 'Good to see you', subtitle: 'Your files, all in one place.' },
+    'My Files': { title: 'My Files', subtitle: 'Browse your folders and files.' },
+    Gallery: { title: 'Gallery', subtitle: 'Your photos and videos.' },
+    Recent: { title: 'Recent', subtitle: 'Your recently accessed files.' },
+    Trash: { title: 'Trash', subtitle: 'Deleted files will appear here.' },
+    Settings: { title: 'Settings', subtitle: 'Manage your application preferences.' },
+  };
+
+  const loadAccounts = useCallback(async () => {
+    setAccountsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/accounts`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) throw new Error(`Server returned HTTP ${response.status}`);
+      const data = await response.json();
+      if (data.status !== 'success' || !Array.isArray(data.accounts)) {
+        throw new Error('Unexpected accounts response from backend.');
+      }
+      setAccounts(data.accounts);
+      setSelectedAccountId((previous) => {
+        if (data.accounts.some((account: CloudAccount) => account.id === previous && account.status === 'CONNECTED')) {
+          return previous;
+        }
+        const preferred = data.accounts.find((account: CloudAccount) => account.provider === 'GOOGLE_DRIVE' && account.status === 'CONNECTED')
+          ?? data.accounts.find((account: CloudAccount) => account.provider === 'MEGA' && account.status === 'CONNECTED');
+        return preferred?.id ?? '';
+      });
+    } catch (error) {
+      console.error('Could not load cloud accounts:', error);
+      setNotice(
+        error instanceof Error
+          ? `Could not load accounts: ${error.message}`
+          : 'Could not load cloud accounts.'
+      );
+    } finally {
+      setAccountsLoading(false);
+    }
+  }, []);
+
+  const loadFiles = useCallback(async (accountId?: string, parentId?: string) => {
+    const connectedAccounts = accounts.filter(
+      (account) =>
+        account.status === 'CONNECTED' &&
+        (account.provider === 'GOOGLE_DRIVE' || account.provider === 'MEGA')
+    );
+
+    const isUnifiedRoot = !accountId && parentId === 'root';
+    const requestedAccount = accountId
+      ? connectedAccounts.find((account) => account.id === accountId)
+      : connectedAccounts.find((account) => account.id === selectedAccountId)
+        ?? connectedAccounts[0];
+    const targetAccounts = isUnifiedRoot
+      ? connectedAccounts
+      : requestedAccount
+        ? [requestedAccount]
+        : [];
+
+    if (targetAccounts.length === 0) {
+      setFiles([]);
+      setFilesError('Connect a Google Drive or MEGA account to see your files.');
+      return;
+    }
+
+    setFilesLoading(true);
+    setFilesError('');
+
+    const fetchAccountFiles = async (account: CloudAccount) => {
+      const endpoint = account.provider === 'MEGA' ? '/mega/files' : '/drive/files';
+      const url = new URL(`${API_BASE}${endpoint}`);
+      url.searchParams.set('accountId', account.id);
+      url.searchParams.set('pageSize', '100');
+      if (parentId && !(account.provider === 'MEGA' && parentId === 'root')) {
+        url.searchParams.set('parentId', parentId);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || `Server returned HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.status !== 'success' || !Array.isArray(data.files)) {
+        throw new Error('Unexpected file list response from backend.');
+      }
+
+      return (data.files as Omit<DriveFile, 'accountId' | 'provider'>[]).map((file) => ({
+        ...file,
+        accountId: account.id,
+        provider: account.provider,
+      }));
+    };
+
+    try {
+      const results = await Promise.allSettled(
+        targetAccounts.map(async (account) => ({
+          account,
+          files: await fetchAccountFiles(account),
+        }))
+      );
+
+      const loadedFiles: DriveFile[] = [];
+      const failedAccounts: string[] = [];
+      let successfulAccounts = 0;
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulAccounts += 1;
+          loadedFiles.push(...result.value.files);
+        } else {
+          const account = targetAccounts[index];
+          failedAccounts.push(account.displayLabel || account.provider);
+          console.error(`Could not load files from ${account.displayLabel}:`, result.reason);
+        }
+      });
+
+      if (successfulAccounts === 0 && failedAccounts.length > 0) {
+        throw new Error(`Could not load files from: ${failedAccounts.join(', ')}.`);
+      }
+
+      setFiles(loadedFiles);
+
+      if (failedAccounts.length > 0) {
+        setNotice(`Some cloud accounts could not be loaded: ${failedAccounts.join(', ')}. Files from the other connected accounts are still shown.`);
+      }
+    } catch (error) {
+      console.error('Could not load cloud files:', error);
+      setFiles([]);
+      setFilesError(
+        error instanceof Error ? error.message : 'Could not load cloud files.'
+      );
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [accounts, selectedAccountId]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let active = true;
+    invoke<boolean>('local_server_status')
+      .then((running) => {
+        if (active) setServerRunning(running);
+      })
+      .catch(() => {
+        if (active) setServerRunning(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
+
+  useEffect(() => {
+    if (page === 'My Files') {
+      void loadFiles(currentFolderAccountId ?? undefined, currentFolderId ?? 'root');
+    } else if (page === 'Gallery' || page === 'Recent') {
+      void loadFiles();
+    }
+  }, [page, currentFolderId, currentFolderAccountId, loadFiles]);
+
+  useEffect(() => {
+    return () => {
+      if (viewerUrlRef.current) {
+        URL.revokeObjectURL(viewerUrlRef.current);
+      }
+    };
+  }, []);
+
+  function closeViewer() {
+    if (viewerUrlRef.current) {
+      URL.revokeObjectURL(viewerUrlRef.current);
+      viewerUrlRef.current = null;
+    }
+    setViewer(null);
+    setViewerError('');
+    setViewerDownloadUrl('');
+    setViewerLoading(false);
+  }
+
+  function openPage(nextPage: Page) {
+    setPage(nextPage);
+    if (nextPage === 'My Files') {
+      setCurrentFolderId(null);
+      setCurrentFolderAccountId(null);
+      setFolderPath([]);
+    }
+    setSearchOpen(false);
+    setProfileOpen(false);
+    setNotice('');
+  }
+
+  function navigateToFolder(index: number) {
+    if (index < 0) {
+      setCurrentFolderId(null);
+      setCurrentFolderAccountId(null);
+      setFolderPath([]);
+      return;
+    }
+
+    const nextPath = folderPath.slice(0, index + 1);
+    const targetFolder = nextPath[nextPath.length - 1];
+    setFolderPath(nextPath);
+    setCurrentFolderId(targetFolder.id);
+    setCurrentFolderAccountId(targetFolder.accountId);
+  }
+
+  async function createFolder() {
+    const name = window.prompt('Enter new folder name:')?.trim();
+    if (!name) return;
+
+    try {
+      let account: CloudAccount | undefined;
+
+      if (currentFolderId) {
+        account = accounts.find(
+          (item) =>
+            item.id === currentFolderAccountId &&
+            item.status === 'CONNECTED' &&
+            (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA')
+        );
+      } else {
+        // Keep root-level folder creation consistent with file placement:
+        // choose the connected account with the least free space that can
+        // accept a minimal allocation, rather than always using the first
+        // selected Google Drive account.
+        const allocationResponse = await fetch(`${API_BASE}/storage/allocate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ totalBytes: 1 }),
+        });
+        const allocationData = await allocationResponse.json().catch(() => ({}));
+        if (
+          !allocationResponse.ok ||
+          allocationData.status !== 'success' ||
+          !allocationData.allocation?.accountId
+        ) {
+          throw new Error(
+            allocationData.message || 'No connected cloud account is available for this folder.'
+          );
+        }
+
+        account = accounts.find(
+          (item) =>
+            item.id === allocationData.allocation.accountId &&
+            item.status === 'CONNECTED' &&
+            (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA')
+        );
+      }
+
+      if (!account) {
+        throw new Error('The selected cloud account is not connected.');
+      }
+
+      const folderEndpoint = account.provider === 'MEGA' ? '/mega/folders' : '/drive/folders';
+      const response = await fetch(`${API_BASE}${folderEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          accountId: account.id,
+          name,
+          ...(currentFolderId ? { parentId: currentFolderId } : {}),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(data.message || `Folder creation failed (HTTP ${response.status}).`);
+      }
+
+      setNotice(`Folder created in ${account.displayLabel}: ${name}`);
+      if (currentFolderId) {
+        await loadFiles(account.id, currentFolderId);
+      } else {
+        await loadFiles(undefined, 'root');
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not create folder.');
+    }
+  }
+
+  function toggleProvider(provider: Provider) {
+    setExpandedProvider(expandedProvider === provider ? null : provider);
+    setNotice('');
+  }
+
+  async function connectGoogleAccount() {
+    if (googleConnectBusy) return;
+
+    setGoogleConnectBusy(true);
+    setNotice('Opening Google sign-in...');
+
+    const existingGoogleIds = new Set(
+      accounts
+        .filter((account) => account.provider === 'GOOGLE_DRIVE')
+        .map((account) => account.id)
+    );
+
+    try {
+      await openUrl(API_BASE + '/auth/google/start');
+      setNotice('Complete Google sign-in in your browser. Waiting for account connection...');
+
+      const deadline = Date.now() + 5 * 60 * 1000;
+
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+
+        const response = await fetch(API_BASE + '/accounts', {
+          headers: { Accept: 'application/json' },
+        });
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+
+        if (data.status !== 'success' || !Array.isArray(data.accounts)) {
+          continue;
+        }
+
+        const newAccount = data.accounts.find(
+          (account: CloudAccount) =>
+            account.provider === 'GOOGLE_DRIVE' &&
+            account.status === 'CONNECTED' &&
+            !existingGoogleIds.has(account.id)
+        );
+
+        if (newAccount) {
+          setAccounts(data.accounts);
+          setSelectedAccountId(newAccount.id);
+          setNotice('Google Drive connected: ' + newAccount.displayLabel);
+          return;
+        }
+      }
+
+      setNotice('New account not detected yet. If sign-in completed, use Refresh accounts.');
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? 'Google connection failed: ' + error.message
+          : 'Could not start Google sign-in.'
+      );
+    } finally {
+      setGoogleConnectBusy(false);
+    }
+  }
+
+  function addAccount(provider: Provider) {
+    setNotice('');
+
+    if (provider === 'MEGA') {
+      setMegaConnectOpen((previous) => !previous);
+      return;
+    }
+
+    if (provider === 'Google Drive') {
+      void connectGoogleAccount();
+      return;
+    }
+
+    setNotice(provider + ' integration will be added in a future phase.');
+  }
+  async function connectMegaAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!megaEmail.trim() || !megaPassword) {
+      setNotice('MEGA email and password are required.');
+      return;
+    }
+
+    setMegaConnectBusy(true);
+    setNotice('');
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/mega/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: megaEmail.trim(),
+          password: megaPassword,
+          ...(megaTwoFactor.trim()
+            ? { secondFactorCode: megaTwoFactor.trim() }
+            : {}),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(
+          data.message || `MEGA connection failed (HTTP ${response.status}).`
+        );
+      }
+
+      setMegaPassword('');
+      setMegaTwoFactor('');
+      setMegaEmail('');
+      setMegaConnectOpen(false);
+      setNotice('MEGA account connected successfully.');
+      await loadAccounts();
+    } catch (error) {
+      setMegaPassword('');
+      setNotice(
+        error instanceof Error ? error.message : 'Could not connect MEGA account.'
+      );
+    } finally {
+      setMegaConnectBusy(false);
+    }
+  }
+
+  async function openGoogleDrive(file: DriveFile) {
+    if (file.provider !== 'GOOGLE_DRIVE') {
+      setNotice('External links are only available for Google Drive files.');
+      return;
+    }
+    if (!file.webViewLink) {
+      setNotice('Google Drive link is not available for this file.');
+      return;
+    }
+
+    try {
+      if (isTauri()) {
+        await openUrl(file.webViewLink);
+      } else {
+        window.open(file.webViewLink, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      setNotice(`Could not open Google Drive: ${String(error)}`);
+    }
+  }
+
+  async function downloadViewerFile() {
+    if (!viewerDownloadUrl || !viewer) return;
+
+    const link = document.createElement('a');
+    link.href = viewerDownloadUrl;
+    link.download = viewer.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function openFile(file: DriveFile) {
+    const isFolder = file.isFolder || file.mimeType === 'application/vnd.google-apps.folder';
+    if (isFolder) {
+      if (page !== 'My Files') {
+        setNotice('Open folders from My Files.');
+        return;
+      }
+      setCurrentFolderId(file.id);
+      setCurrentFolderAccountId(file.accountId);
+      setFolderPath((previous) => [
+        ...previous,
+        {
+          id: file.id,
+          name: file.name,
+          accountId: file.accountId,
+          provider: file.provider,
+        },
+      ]);
+      setNotice('');
+      return;
+    }
+
+    const account = accounts.find(
+      (item) =>
+        item.id === file.accountId &&
+        item.status === 'CONNECTED' &&
+        item.provider === file.provider
+    );
+
+    if (!account || !['GOOGLE_DRIVE', 'MEGA'].includes(account.provider)) {
+      setNotice('The cloud account that owns this file is not connected.');
+      return;
+    }
+
+    closeViewer();
+    setViewerLoading(true);
+    setViewerError('');
+
+    try {
+      const contentEndpoint = account.provider === 'MEGA'
+        ? '/mega/files'
+        : '/drive/files';
+      const url = new URL(
+        `${API_BASE}${contentEndpoint}/${encodeURIComponent(file.id)}/content`
+      );
+      url.searchParams.set('accountId', account.id);
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: '*/*' },
+      });
+
+      if (!response.ok) {
+        let message = `Could not open file (HTTP ${response.status}).`;
+        try {
+          const data = await response.json();
+          if (data.message) message = data.message;
+        } catch {
+          // Keep the generic message if the server response is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+
+      if (blob.size > MAX_PREVIEW_SIZE) {
+        throw new Error('This file is larger than the 50 MB preview limit.');
+      }
+
+      const mimeType = response.headers.get('Content-Type')?.split(';')[0]
+        || file.mimeType
+        || 'application/octet-stream';
+
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      let fileName = file.name;
+
+      if (encodedName) {
+        try {
+          fileName = decodeURIComponent(encodedName);
+        } catch {
+          fileName = file.name;
+        }
+      } else if (mimeType === 'application/pdf' && !fileName.toLowerCase().endsWith('.pdf')) {
+        fileName += '.pdf';
+      } else if (
+        mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' &&
+        !fileName.toLowerCase().endsWith('.xlsx')
+      ) {
+        fileName += '.xlsx';
+      } else if (
+        mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' &&
+        !fileName.toLowerCase().endsWith('.pptx')
+      ) {
+        fileName += '.pptx';
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      viewerUrlRef.current = objectUrl;
+
+      const textPreview = mimeType.startsWith('text/')
+        || mimeType === 'application/json'
+        || mimeType === 'application/xml'
+        || mimeType === 'application/javascript'
+        || mimeType === 'application/csv';
+
+      let textContent: string | undefined;
+
+      if (textPreview) {
+        if (blob.size > 5 * 1024 * 1024) {
+          throw new Error('Text preview is limited to 5 MB. Please download this file instead.');
+        }
+        textContent = await blob.text();
+      }
+
+      setViewer({
+        file,
+        url: objectUrl,
+        mimeType,
+        fileName,
+        textContent,
+      });
+      setViewerDownloadUrl(objectUrl);
+    } catch (error) {
+      if (viewerUrlRef.current) {
+        URL.revokeObjectURL(viewerUrlRef.current);
+        viewerUrlRef.current = null;
+      }
+      setViewerError(
+        error instanceof Error ? error.message : 'Could not open this file.'
+      );
+    } finally {
+      setViewerLoading(false);
+    }
+  }
+
+  async function refreshLocalStatus() {
+    if (!isTauri()) {
+      setModeError('Windows backend controls require the installed Tauri desktop application.');
+      return;
+    }
+    try {
+      const running = await invoke<boolean>('local_server_status');
+      setServerRunning(running);
+      setModeMessage(running ? 'Local backend process is running.' : 'Local backend process is stopped.');
+      setModeError('');
+    } catch (error) {
+      setModeError(String(error));
+    }
+  }
+
+  async function startLocalServer(selectedMode: 'standalone' | 'server') {
+    if (!isTauri()) {
+      setModeError('Please run the Windows desktop app using Tauri.');
+      return;
+    }
+    setModeBusy(true);
+    setModeError('');
+    setModeMessage('');
+    try {
+      const result = await invoke<string>('local_server_start', {
+        mode: selectedMode,
+        port: 4100,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      const running = await invoke<boolean>('local_server_status');
+      setServerRunning(running);
+      if (!running) throw new Error('Backend process did not stay running. Check port 4100.');
+      setModeMessage(
+        result === 'already_running'
+          ? 'Backend was already running.'
+          : selectedMode === 'standalone'
+            ? 'Standalone backend started on this PC.'
+            : 'Server backend started. Network access is enabled.'
+      );
+      await loadAccounts();
+    } catch (error) {
+      setServerRunning(false);
+      setModeError(String(error));
+    } finally {
+      setModeBusy(false);
+    }
+  }
+
+  async function stopLocalServer() {
+    if (!isTauri()) {
+      setModeError('Stop command requires the Windows desktop application.');
+      return;
+    }
+    setModeBusy(true);
+    setModeError('');
+    setModeMessage('');
+    try {
+      const result = await invoke<string>('local_server_stop');
+      setServerRunning(false);
+      setModeMessage(result === 'stopped' ? 'Local backend stopped.' : 'No local backend process was running.');
+    } catch (error) {
+      setModeError(String(error));
+    } finally {
+      setModeBusy(false);
+    }
+  }
+
+  async function connectClient() {
+    setModeBusy(true);
+    setModeError('');
+    setModeMessage('');
+    setClientConnected(false);
+    setClientServerName('');
+    try {
+      const parsed = new URL(clientUrl.trim());
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new Error('Only HTTP and HTTPS server URLs are supported.');
+      }
+      if (parsed.username || parsed.password) {
+        throw new Error('Do not put usernames or passwords inside the server URL.');
+      }
+      const baseUrl = parsed.toString().replace(/\/+$/, '');
+      const response = await fetch(`${baseUrl}/health`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) throw new Error(`Server returned HTTP ${response.status}.`);
+      const data = await response.json();
+      if (data.status !== 'ok') throw new Error('This is not a recognized Unified Cloud server.');
+      setClientConnected(true);
+      setClientServerName(typeof data.service === 'string' ? data.service : 'Unified Cloud Server');
+      setModeMessage('Remote server health check successful.');
+    } catch (error) {
+      setClientConnected(false);
+      setModeError(error instanceof Error ? error.message : 'Could not connect to the remote server.');
+    } finally {
+      setModeBusy(false);
+    }
+  }
+
+  function updateTransfer(id: string, patch: Partial<TransferRow>) {
+    setTransfers((previous) =>
+      previous.map((item) => item.id === id ? { ...item, ...patch } : item)
+    );
+  }
+
+  async function pauseTransfer(id: string) {
+    const control = transferControlsRef.current.get(id);
+    if (!control || control.cancelled || control.paused) return;
+
+    control.paused = true;
+    updateTransfer(id, { status: 'paused' });
+
+    try {
+      if (control.transferId) {
+        const uploadBase = control.uploadProvider === 'MEGA' ? '/mega' : '/drive';
+        const response = await fetch(
+          `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(control.transferId)}/pause`,
+          { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Could not pause transfer.');
+      }
+    } catch (error) {
+      control.paused = false;
+      updateTransfer(id, {
+        status: 'uploading',
+        error: error instanceof Error ? error.message : 'Pause failed.',
+      });
+    }
+  }
+
+  async function resumeTransfer(id: string) {
+    const control = transferControlsRef.current.get(id);
+    if (!control || control.cancelled || !control.paused) return;
+
+    try {
+      if (control.transferId) {
+        const uploadBase = control.uploadProvider === 'MEGA' ? '/mega' : '/drive';
+        const response = await fetch(
+          `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(control.transferId)}/resume`,
+          { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Could not resume transfer.');
+      }
+
+      control.paused = false;
+      updateTransfer(id, { status: 'uploading', error: undefined });
+    } catch (error) {
+      updateTransfer(id, {
+        error: error instanceof Error ? error.message : 'Resume failed.',
+      });
+    }
+  }
+
+  async function cancelTransfer(id: string) {
+    const control = transferControlsRef.current.get(id);
+    if (!control || control.cancelled) return;
+
+    control.cancelled = true;
+    control.paused = false;
+
+    updateTransfer(id, { status: 'cancelled' });
+
+    if (control.transferId) {
+      try {
+        const uploadBase = control.uploadProvider === 'MEGA' ? '/mega' : '/drive';
+        await fetch(
+          `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(control.transferId)}/cancel`,
+          { method: 'POST' }
+        );
+      } catch {
+        updateTransfer(id, {
+          error: 'Cancellation requested, but server confirmation was unavailable.',
+        });
+      }
+    }
+    if (control.downloadSessionId) {
+      const downloadBase = control.downloadProvider === 'MEGA' ? '/mega' : '/drive';
+      await fetch(
+        `${API_BASE}${downloadBase}/transfers/download/${encodeURIComponent(control.downloadSessionId)}`,
+        { method: 'DELETE' }
+      ).catch(() => undefined);
+    }
+  }
+
+  async function uploadSelectedFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const selectedFiles = Array.from(input.files ?? []);
+    if (selectedFiles.length === 0) return;
+
+    // A provider-owned folder must keep using its owning account so its
+    // provider-native folder ID remains valid. At the unified root, allocate
+    // each file independently using fresh provider quotas.
+    const folderAccount = currentFolderId
+      ? accounts.find(
+          (item) => item.id === currentFolderAccountId &&
+            (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA') &&
+            item.status === 'CONNECTED'
+        )
+      : undefined;
+
+    if (currentFolderId && !folderAccount) {
+      setUploadMessage('The cloud account owning this folder is not connected.');
+      input.value = '';
+      return;
+    }
+
+    setUploading(true);
+    setUploadMessage(
+      currentFolderId
+        ? `Adding ${selectedFiles.length} file(s) to the current cloud folder...`
+        : `Checking available cloud space for ${selectedFiles.length} file(s)...`
+    );
+
+    const jobs = selectedFiles.map((selectedFile) => async () => {
+      const localId = crypto.randomUUID();
+      const control = {
+        paused: false,
+        cancelled: false,
+        transferId: undefined as string | undefined,
+        uploadProvider: 'GOOGLE_DRIVE' as 'GOOGLE_DRIVE' | 'MEGA',
+      };
+      transferControlsRef.current.set(localId, control);
+
+      setTransfers((previous) => [
+        ...previous,
+        {
+          id: localId,
+          direction: 'upload',
+          name: selectedFile.name,
+          size: selectedFile.size,
+          uploadedBytes: 0,
+          progress: 0,
+          speed: 0,
+          eta: 0,
+          status: 'queued',
+        },
+      ]);
+
+      if (selectedFile.size < 1 || !Number.isSafeInteger(selectedFile.size)) {
+        updateTransfer(localId, {
+          status: 'failed',
+          error: 'The selected file has an unsupported size.',
+        });
+        return;
+      }
+
+      let transferId: string | undefined;
+
+      try {
+        if (control.cancelled) return;
+
+        let account: CloudAccount | undefined = folderAccount;
+
+        if (!currentFolderId) {
+          const allocationResponse = await fetch(`${API_BASE}/storage/allocate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ totalBytes: selectedFile.size }),
+          });
+          const allocationData = await allocationResponse.json().catch(() => ({}));
+          if (
+            !allocationResponse.ok ||
+            allocationData.status !== 'success' ||
+            !allocationData.allocation?.accountId
+          ) {
+            throw new Error(
+              allocationData.message || `No suitable cloud account has enough space for ${selectedFile.name}.`
+            );
+          }
+          account = accounts.find(
+            (item) =>
+              item.id === allocationData.allocation.accountId &&
+              item.status === 'CONNECTED' &&
+              (item.provider === 'GOOGLE_DRIVE' || item.provider === 'MEGA')
+          );
+        }
+
+        if (!account) {
+          throw new Error('The automatically selected cloud account is not connected.');
+        }
+
+        const uploadBase = account.provider === 'MEGA' ? '/mega' : '/drive';
+        control.uploadProvider = (account.provider === 'MEGA' ? 'MEGA' : 'GOOGLE_DRIVE') as 'MEGA' | 'GOOGLE_DRIVE';
+        setUploadMessage(
+          `Selected ${account.displayLabel} (${account.provider}) for ${selectedFile.name}.`
+        );
+
+        const initResponse = await fetch(`${API_BASE}${uploadBase}/transfers/upload/init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            accountId: account.id,
+            fileName: selectedFile.name,
+            mimeType: selectedFile.type || 'application/octet-stream',
+            totalBytes: selectedFile.size,
+            ...(currentFolderId ? { parentId: currentFolderId } : {}),
+          }),
+        });
+
+        const initData = await initResponse.json().catch(() => ({}));
+
+        if (!initResponse.ok || initData.status !== 'success' || !initData.transfer?.transferId) {
+          throw new Error(initData.message || initData.error || 'Could not start upload.');
+        }
+
+        transferId = initData.transfer.transferId as string;
+        control.transferId = transferId;
+
+        updateTransfer(localId, {
+          status: control.paused ? 'paused' : 'uploading',
+          transferId,
+        });
+
+        if (control.cancelled) {
+          await cancelTransfer(localId);
+          return;
+        }
+
+        const chunkSize = Number(initData.chunkSize || 8 * 1024 * 1024);
+        let sentBytes = Number(
+          initData.transfer.receivedBytes ?? initData.transfer.uploadedBytes ?? 0
+        );
+        let uploadedBytes = Number(initData.transfer.uploadedBytes ?? sentBytes);
+        const startedAt = Date.now();
+
+        while (sentBytes < selectedFile.size) {
+          while (control.paused && !control.cancelled) {
+            await new Promise((resolve) => window.setTimeout(resolve, 200));
+          }
+
+          if (control.cancelled) {
+            await fetch(
+              `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(transferId)}/cancel`,
+              { method: 'POST' }
+            ).catch(() => undefined);
+            return;
+          }
+
+          const end = Math.min(sentBytes + chunkSize, selectedFile.size);
+          const chunkBuffer = await selectedFile.slice(sentBytes, end).arrayBuffer();
+
+          const chunkResponse = await fetch(
+            `${API_BASE}${uploadBase}/transfers/${encodeURIComponent(transferId)}/chunk`,
+            {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                'X-Start-Byte': String(sentBytes),
+                Accept: 'application/json',
+              },
+              body: chunkBuffer,
+            }
+          );
+
+          const chunkData = await chunkResponse.json().catch(() => ({}));
+
+          if (chunkResponse.status === 409 && control.paused) {
+            continue;
+          }
+
+          if (control.cancelled) return;
+
+          if (!chunkResponse.ok || chunkData.status !== 'success') {
+            throw new Error(chunkData.message || chunkData.error || 'Upload chunk failed.');
+          }
+
+          const nextSentBytes = Number(
+            chunkData.transfer?.receivedBytes ?? chunkData.transfer?.uploadedBytes
+          );
+          const nextUploadedBytes = Number(
+            chunkData.transfer?.uploadedBytes ?? nextSentBytes
+          );
+
+          if (
+            !Number.isFinite(nextSentBytes) ||
+            nextSentBytes <= sentBytes ||
+            !Number.isFinite(nextUploadedBytes)
+          ) {
+            throw new Error('Upload made no confirmed progress. Please retry.');
+          }
+
+          sentBytes = nextSentBytes;
+          uploadedBytes = Math.max(uploadedBytes, nextUploadedBytes);
+
+          const elapsedSeconds = Math.max((Date.now() - startedAt) / 1000, 0.1);
+          const speed = uploadedBytes / elapsedSeconds;
+          const eta = speed > 0
+            ? Math.ceil((selectedFile.size - uploadedBytes) / speed)
+            : 0;
+
+          updateTransfer(localId, {
+            uploadedBytes,
+            progress: chunkData.transfer?.completed
+              ? 100
+              : Math.min(99, Math.round(uploadedBytes / selectedFile.size * 100)),
+            speed,
+            eta,
+          });
+
+          if (chunkData.transfer?.completed) break;
+        }
+
+        if (!control.cancelled) {
+          updateTransfer(localId, {
+            status: 'completed',
+            uploadedBytes: selectedFile.size,
+            progress: 100,
+            eta: 0,
+          });
+        }
+      } catch (error) {
+        if (control.cancelled) {
+          updateTransfer(localId, { status: 'cancelled' });
+        } else {
+          updateTransfer(localId, {
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Upload failed.',
+          });
+        }
+      }
+    });
+
+    try {
+      for (const job of jobs) await job();
+      setUploadMessage('Transfer queue updated.');
+      if (currentFolderId && folderAccount) {
+        await loadFiles(folderAccount.id, currentFolderId);
+      } else {
+        await loadFiles(undefined, 'root');
+      }
+    } catch (error) {
+      setUploadMessage(error instanceof Error ? error.message : 'Could not refresh files.');
+    } finally {
+      setUploading(false);
+      input.value = '';
+    }
+  }
+
+  async function downloadFile(file: DriveFile) {
+    if (file.isFolder || file.mimeType === 'application/vnd.google-apps.folder') return;
+    if (file.provider !== 'GOOGLE_DRIVE' && file.provider !== 'MEGA') {
+      setNotice('Downloads are not available for this cloud provider yet.');
+      return;
+    }
+    const account = accounts.find(
+      (item) =>
+        item.id === file.accountId &&
+        item.provider === file.provider &&
+        item.status === 'CONNECTED'
+    );
+    if (!account) {
+      setNotice('The cloud account that owns this file is not connected.');
+      return;
+    }
+    if (!isTauri()) {
+      setNotice('Native Save As downloads are available in the Windows desktop app.');
+      return;
+    }
+
+    try {
+      const destination = await save({ defaultPath: file.name || 'download' });
+      if (!destination) return;
+
+      const localId = crypto.randomUUID();
+      transferControlsRef.current.set(localId, {
+        paused: false,
+        cancelled: false,
+        downloadProvider: account.provider,
+      });
+      setTransfers((previous) => [
+        ...previous,
+        {
+          id: localId,
+          direction: 'download',
+          name: file.name || 'download',
+          size: Number(file.size || 0),
+          uploadedBytes: 0,
+          progress: 0,
+          speed: 0,
+          eta: 0,
+          status: 'queued',
+        },
+      ]);
+      downloadQueueRef.current.push({
+        localId,
+        file,
+        accountId: account.id,
+        path: destination,
+      });
+      setNotice(`Download queued: ${file.name}`);
+      void runDownloadQueue();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not open Save As dialog.');
+    }
+  }
+
+  async function runDownloadQueue() {
+    if (downloadRunningRef.current) return;
+    downloadRunningRef.current = true;
+
+    try {
+      while (downloadQueueRef.current.length > 0) {
+        const task = downloadQueueRef.current.shift()!;
+        const control = transferControlsRef.current.get(task.localId);
+        if (!control || control.cancelled) continue;
+
+        let handle: Awaited<ReturnType<typeof openLocalFile>> | undefined;
+        let sessionId: string | undefined;
+
+        try {
+          updateTransfer(task.localId, { status: control.paused ? 'paused' : 'uploading', error: undefined });
+          const downloadBase = task.file.provider === 'MEGA' ? '/mega' : '/drive';
+          const initResponse = await fetch(`${API_BASE}${downloadBase}/transfers/download/init`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ accountId: task.accountId, fileId: task.file.id }),
+          });
+          const initData = await initResponse.json().catch(() => ({}));
+          if (!initResponse.ok || initData.status !== 'success' || !initData.transfer?.transferId) {
+            throw new Error(initData.message || 'Could not initialize download.');
+          }
+
+          sessionId = String(initData.transfer.transferId);
+          control.downloadSessionId = sessionId;
+          control.downloadProvider = task.file.provider;
+          if (control.cancelled) {
+            throw new Error('Download cancelled.');
+          }
+          const totalBytes = Number(initData.transfer.totalBytes);
+          const chunkSize = Number(initData.chunkSize || 1024 * 1024);
+          if (!Number.isSafeInteger(totalBytes) || totalBytes < 1) {
+            throw new Error('Server returned an invalid download size.');
+          }
+
+          updateTransfer(task.localId, {
+            name: String(initData.transfer.fileName || task.file.name),
+            size: totalBytes,
+            status: control.paused ? 'paused' : 'uploading',
+          });
+
+          handle = await openLocalFile(task.path, {
+            write: true,
+            create: true,
+            truncate: true,
+          });
+
+          let downloadedBytes = 0;
+          const startedAt = Date.now();
+
+          while (downloadedBytes < totalBytes) {
+            while (control.paused && !control.cancelled) {
+              await new Promise((resolve) => window.setTimeout(resolve, 200));
+            }
+            if (control.cancelled) break;
+
+            const chunkResponse = await fetch(
+              `${API_BASE}${downloadBase}/transfers/download/${encodeURIComponent(sessionId)}/chunk?startByte=${downloadedBytes}`,
+              { headers: { Accept: 'application/octet-stream' } }
+            );
+            if (!chunkResponse.ok) {
+              const errorData = await chunkResponse.json().catch(() => ({}));
+              throw new Error(errorData.message || `Download chunk failed (HTTP ${chunkResponse.status}).`);
+            }
+
+            const chunk = new Uint8Array(await chunkResponse.arrayBuffer());
+            if (chunk.length < 1 || chunk.length > chunkSize || downloadedBytes + chunk.length > totalBytes) {
+              throw new Error('Server returned an invalid download chunk.');
+            }
+            if (control.cancelled) break;
+
+            await handle.seek(downloadedBytes, SeekMode.Start);
+            const written = await handle.write(chunk);
+            if (written !== chunk.length) {
+              throw new Error('Could not write the complete download chunk to disk.');
+            }
+            downloadedBytes += written;
+
+            const elapsedSeconds = Math.max((Date.now() - startedAt) / 1000, 0.1);
+            const speed = downloadedBytes / elapsedSeconds;
+            const eta = speed > 0 ? Math.ceil((totalBytes - downloadedBytes) / speed) : 0;
+            updateTransfer(task.localId, {
+              uploadedBytes: downloadedBytes,
+              progress: Math.min(100, Math.round(downloadedBytes / totalBytes * 100)),
+              speed,
+              eta,
+            });
+          }
+
+          if (control.cancelled) {
+            await handle.truncate(0);
+            updateTransfer(task.localId, { status: 'cancelled', uploadedBytes: 0, progress: 0, speed: 0, eta: 0 });
+          } else {
+            updateTransfer(task.localId, {
+              status: 'completed',
+              uploadedBytes: totalBytes,
+              progress: 100,
+              speed: 0,
+              eta: 0,
+            });
+          }
+        } catch (error) {
+          updateTransfer(task.localId, {
+            status: control.cancelled ? 'cancelled' : 'failed',
+            error: control.cancelled ? undefined : (error instanceof Error ? error.message : (typeof error === 'string' ? error : JSON.stringify(error) || 'Download failed.')),
+          });
+        } finally {
+          if (handle) {
+            try { await handle.close(); } catch { /* close best-effort */ }
+          }
+          if (sessionId) {
+            const downloadBase = task.file.provider === 'MEGA' ? '/mega' : '/drive';
+            await fetch(`${API_BASE}${downloadBase}/transfers/download/${encodeURIComponent(sessionId)}`, {
+              method: 'DELETE',
+            }).catch(() => undefined);
+          }
+          control.downloadSessionId = undefined;
+        }
+      }
+    } finally {
+      downloadRunningRef.current = false;
+      if (downloadQueueRef.current.length > 0) void runDownloadQueue();
+    }
+  }
+
+  function formatFileSize(size?: string) {
+    if (!size) return '—';
+    const bytes = Number(size);
+    if (!Number.isFinite(bytes)) return size;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+
+  function fileIcon(file: DriveFile) {
+    if (file.mimeType?.startsWith('image/')) return <FileImage size={20} />;
+    if (file.mimeType?.startsWith('video/')) return <FileVideo size={20} />;
+    if (file.mimeType?.includes('text') || file.mimeType?.includes('document')) return <FileText size={20} />;
+    if (file.isFolder || file.mimeType === 'application/vnd.google-apps.folder') return <Folder size={20} />;
+    return <File size={20} />;
+  }
+
+  function renderViewerContent() {
+    if (!viewer) return null;
+
+    const { mimeType, url, textContent } = viewer;
+
+    if (mimeType === 'application/pdf') {
+      return (
+        <iframe
+          src={url}
+          title={viewer.fileName}
+          style={{ width: '100%', height: '100%', border: 0, background: '#fff' }}
+        />
+      );
+    }
+
+    if (mimeType.startsWith('image/')) {
+      return (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto', padding: '15px', boxSizing: 'border-box' }}>
+          <img src={url} alt={viewer.fileName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+        </div>
+      );
+    }
+
+    if (mimeType.startsWith('video/')) {
+      return (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#080b0d' }}>
+          <video src={url} controls autoPlay style={{ maxWidth: '100%', maxHeight: '100%' }}>
+            Your browser does not support this video.
+          </video>
+        </div>
+      );
+    }
+
+    if (mimeType.startsWith('audio/')) {
+      return (
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '25px', color: '#e8efeb' }}>
+          <div style={{ width: '110px', height: '110px', borderRadius: '25px', background: '#203b30', display: 'grid', placeItems: 'center' }}>
+            <File size={52} color="#65dba5" />
+          </div>
+          <b>{viewer.fileName}</b>
+          <audio src={url} controls autoPlay style={{ width: 'min(500px, 90%)' }} />
+        </div>
+      );
+    }
+
+    if (textContent !== undefined) {
+      return (
+        <pre style={{ margin: 0, padding: '22px', width: '100%', height: '100%', overflow: 'auto', boxSizing: 'border-box', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: '#e3ebe6', background: '#101519', fontSize: '13px', lineHeight: 1.65 }}>
+          {textContent}
+        </pre>
+      );
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '14px', padding: '25px', textAlign: 'center', color: '#e3ebe6' }}>
+        <File size={48} color="#65dba5" />
+        <b>{viewer.fileName}</b>
+        <p style={{ color: '#9ca9a3', maxWidth: '420px' }}>
+          Is file type ka in-app preview abhi available nahi hai. Aap ise download kar sakte hain.
+        </p>
+        <button className="secondary" onClick={() => void downloadViewerFile()}>
+          <Download size={16} /> Download file
+        </button>
+      </div>
+    );
+  }
+
+  const localStatusText = serverRunning ? 'Local backend running' : 'Local backend stopped';
+  const visibleFiles = files.filter((file) =>
+    file.name.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div
+          className="brand"
+          role="button"
+          tabIndex={0}
+          onClick={() => openPage('Home')}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') openPage('Home');
+          }}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="brand-icon"><Cloud size={21} /></div>
+          <span>My Cloud</span>
+        </div>
+
+        <button className="upload" onClick={() => {
+          openPage('My Files');
+          window.setTimeout(() => fileInputRef.current?.click(), 100);
+        }}>
+          <Upload size={17} /> Upload files
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={uploadSelectedFile}
+        />
+
+        <nav>
+          {menu.map((item) => {
+            const Icon = item.icon;
+            return (
+              <a
+                key={item.name}
+                href="#"
+                className={page === item.name ? 'active' : ''}
+                onClick={(event) => {
+                  event.preventDefault();
+                  openPage(item.name);
+                }}
+              >
+                <Icon size={18} /> {item.name}
+              </a>
+            );
+          })}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <a
+            href="#"
+            className={page === 'Settings' ? 'active' : ''}
+            onClick={(event) => {
+              event.preventDefault();
+              openPage('Settings');
+            }}
+          >
+            <Settings size={18} /> Settings
+          </a>
+          <div className="server-state">
+            <span className="dot" style={{ background: serverRunning ? '#43c98c' : '#d69b48' }} />
+            {serverRunning ? localStatusText : 'Server not running'}
+          </div>
+        </div>
+      </aside>
+
+      <main className="main">
+        <header>
+          <div>
+            <div className="eyebrow">PERSONAL STORAGE</div>
+            <h1>{pageInfo[page].title}</h1>
+            <p className="muted">{pageInfo[page].subtitle}</p>
+          </div>
+
+          <div className="header-actions" style={{ position: 'relative' }}>
+            <button
+              className="icon-button"
+              onClick={() => {
+                setSearchOpen(!searchOpen);
+                setProfileOpen(false);
+                setNotice('');
+              }}
+              title="Search files"
+            >
+              {searchOpen ? <X size={19} /> : <Search size={19} />}
+            </button>
+
+            <button
+              className="profile"
+              onClick={() => {
+                setProfileOpen(!profileOpen);
+                setSearchOpen(false);
+                setNotice('');
+                void loadAccounts();
+              }}
+            >
+              <span className="avatar"><UserRound size={18} /></span>
+              <span>
+                <b>Your Name</b>
+                <small>Profile & clouds</small>
+              </span>
+              <ChevronDown size={16} />
+            </button>
+
+            {profileOpen && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 12px)',
+                right: 0,
+                width: 'min(340px, 85vw)',
+                maxHeight: '70vh',
+                overflowY: 'auto',
+                zIndex: 1000,
+                background: '#171d22',
+                color: '#f2f5f4',
+                border: '1px solid #35423e',
+                borderRadius: '14px',
+                padding: '16px',
+                boxShadow: '0 12px 35px rgba(0,0,0,0.45)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                  <b style={{ fontSize: '16px' }}>Connected Clouds</b>
+                  <button onClick={() => setProfileOpen(false)} title="Close" style={{ background: 'transparent', border: 0, color: '#c4cfca', cursor: 'pointer' }}>
+                    <X size={19} />
+                  </button>
+                </div>
+                <p style={{ fontSize: '12px', color: '#9ca9a3', margin: '0 0 14px' }}>
+                  Manage your cloud providers and accounts.
+                </p>
+
+                {accountsLoading && <p style={{ color: '#9ca9a3', fontSize: '12px' }}>Loading accounts...</p>}
+
+                {providers.map((provider) => {
+                  const names = connectedAccounts[provider.name];
+                  const providerAccounts = accounts.filter((account) =>
+                    provider.name === 'Google Drive'
+                      ? account.provider === 'GOOGLE_DRIVE'
+                      : provider.name === 'MEGA'
+                        ? account.provider === 'MEGA'
+                        : account.provider === 'ONEDRIVE'
+                  );
+                  const expanded = expandedProvider === provider.name;
+
+                  return (
+                    <div key={provider.name} style={{ border: '1px solid #303b37', borderRadius: '10px', marginBottom: '10px', overflow: 'hidden' }}>
+                      <button
+                        onClick={() => toggleProvider(provider.name)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: expanded ? '#202b26' : 'transparent', color: '#f2f5f4', border: 0, cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <Folder size={20} color="#43c98c" />
+                        <span style={{ flex: 1 }}>
+                          <b style={{ display: 'block', fontSize: '13px' }}>{provider.name}</b>
+                          <small style={{ color: '#9ca9a3' }}>{names.length} connected account(s)</small>
+                        </span>
+                        {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                      </button>
+
+                      {expanded && (
+                        <div style={{ padding: '10px 12px', borderTop: '1px solid #303b37' }}>
+                          {providerAccounts.length > 0 ? providerAccounts.map((account) => (
+                            <div key={account.id} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '9px 2px', fontSize: '13px' }}>
+                              <UserRound size={17} color="#9ca9a3" />
+                              <span>{account.displayLabel}</span>
+                              <span style={{ marginLeft: 'auto', color: account.status === 'CONNECTED' ? '#43c98c' : '#d69b48', fontSize: '11px' }}>
+                                {account.status === 'CONNECTED' ? 'Connected' : account.status}
+                              </span>
+                            </div>
+                          )) : (
+                            <p style={{ fontSize: '12px', color: '#9ca9a3', margin: '2px 0 10px' }}>No connected accounts yet.</p>
+                          )}
+                          {provider.name === 'MEGA' && megaConnectOpen && (
+                            <form
+                              onSubmit={connectMegaAccount}
+                              style={{
+                                padding: '12px',
+                                marginBottom: '10px',
+                                background: '#101519',
+                                border: '1px solid #35423e',
+                                borderRadius: '9px',
+                              }}
+                            >
+                              <b style={{ display: 'block', fontSize: '13px', marginBottom: '12px' }}>
+                                Connect MEGA account
+                              </b>
+                              <label style={{ display: 'block', fontSize: '12px', color: '#b8c5be', marginBottom: '5px' }}>
+                                Email
+                              </label>
+                              <input
+                                type="email"
+                                autoComplete="username"
+                                required
+                                value={megaEmail}
+                                onChange={(event) => setMegaEmail(event.target.value)}
+                                placeholder="you@example.com"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+                                  borderRadius: '7px',
+                                }}
+                              />
+                              <label style={{ display: 'block', fontSize: '12px', color: '#b8c5be', marginBottom: '5px' }}>
+                                Password
+                              </label>
+                              <input
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={megaPassword}
+                                onChange={(event) => setMegaPassword(event.target.value)}
+                                placeholder="MEGA password"
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '10px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+                                  borderRadius: '7px',
+                                }}
+                              />
+                              <label style={{ display: 'block', fontSize: '12px', color: '#b8c5be', marginBottom: '5px' }}>
+                                Two-factor code (if enabled)
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                value={megaTwoFactor}
+                                onChange={(event) => setMegaTwoFactor(event.target.value)}
+                                placeholder="6-digit code"
+                                maxLength={8}
+                                style={{
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  padding: '10px',
+                                  marginBottom: '12px',
+                                  background: '#171d22',
+                                  color: '#f2f5f4',
+                                  border: '1px solid #3c4943',
+                                  borderRadius: '7px',
+                                }}
+                              />
+                              <button
+                                type="submit"
+                                disabled={megaConnectBusy}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px',
+                                  background: '#203b30',
+                                  color: '#65dba5',
+                                  border: '1px solid #35634d',
+                                  borderRadius: '8px',
+                                  cursor: megaConnectBusy ? 'wait' : 'pointer',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {megaConnectBusy ? 'Connecting...' : 'Connect MEGA'}
+                              </button>
+                            </form>
+                          )}
+
+                          <button
+
+                            disabled={provider.name === 'Google Drive' && googleConnectBusy}
+
+                            onClick={() => addAccount(provider.name)}
+                            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '7px', padding: '9px', background: '#203b30', color: '#65dba5', border: '1px solid #35634d', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                          >
+                            <Plus size={16} /> {provider.name === 'MEGA' && megaConnectOpen ? 'Close form' : provider.name === 'Google Drive' && googleConnectBusy ? 'Connecting...' : 'Add Account'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {notice && <p style={{ fontSize: '12px', color: '#f0c879', lineHeight: 1.5, margin: '12px 2px 2px' }}>{notice}</p>}
+                <button onClick={() => void loadAccounts()} style={{ background: 'transparent', color: '#65dba5', border: 0, cursor: 'pointer', fontSize: '12px', padding: '6px 2px' }}>
+                  <RefreshCw size={13} style={{ verticalAlign: 'middle', marginRight: '5px' }} /> Refresh accounts
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {notice && (
+          <p style={{ color: '#f0c879', fontSize: '13px', margin: '12px 0' }}>
+            {notice}
+          </p>
+        )}
+
+        {searchOpen && (
+          <section style={{ margin: '12px 0 20px', padding: '14px', background: '#171d22', border: '1px solid #35423e', borderRadius: '12px' }}>
+            <label style={{ display: 'block', fontSize: '13px', marginBottom: '9px', color: '#b8c5be' }}>Search your cloud files</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', background: '#101519', border: '1px solid #3c4943', borderRadius: '9px', padding: '0 11px' }}>
+              <Search size={18} color="#8fa098" />
+              <input
+                autoFocus
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Type a file or folder name..."
+                style={{ flex: 1, minWidth: 0, padding: '12px 0', background: 'transparent', border: 0, outline: 'none', color: '#f2f5f4', fontSize: '14px' }}
+              />
+              {searchText && <button onClick={() => setSearchText('')} style={{ background: 'transparent', border: 0, color: '#aebbb4', cursor: 'pointer' }}><X size={17} /></button>}
+            </div>
+            <p style={{ color: '#9ca9a3', fontSize: '12px', margin: '10px 0 0' }}>
+              Search filters the files currently loaded from your connected cloud accounts.
+            </p>
+          </section>
+        )}
+
+        {page === 'Settings' && (
+          <section style={{ background: '#171d22', border: '1px solid #35423e', borderRadius: '14px', padding: '20px', marginTop: '16px' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <div className="eyebrow">WINDOWS CONNECTION MODES</div>
+              <h2 style={{ margin: '8px 0' }}>Choose how your cloud manager works</h2>
+              <p className="muted">Run locally, host your own server, or connect to another server.</p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+              {([
+                { id: 'standalone' as WindowsMode, name: 'Standalone', detail: 'This PC only', icon: Monitor },
+                { id: 'server' as WindowsMode, name: 'Server Mode', detail: 'Host on your network', icon: Server },
+                { id: 'client' as WindowsMode, name: 'Client Mode', detail: 'Connect to a server', icon: Laptop },
+              ]).map((item) => {
+                const Icon = item.icon;
+                const selected = mode === item.id;
+                return (
+                  <button key={item.id} onClick={() => { setMode(item.id); setModeMessage(''); setModeError(''); }}
+                    style={{ textAlign: 'left', padding: '15px', borderRadius: '11px', border: selected ? '1px solid #43c98c' : '1px solid #35423e', background: selected ? '#203b30' : '#101519', color: '#f2f5f4', cursor: 'pointer' }}>
+                    <Icon size={22} color={selected ? '#65dba5' : '#a5b1aa'} />
+                    <b style={{ display: 'block', marginTop: '10px' }}>{item.name}</b>
+                    <small style={{ color: '#9ca9a3' }}>{item.detail}</small>
+                  </button>
+                );
+              })}
+            </div>
+
+            {mode === 'standalone' && (
+              <div style={{ padding: '16px', border: '1px solid #35423e', borderRadius: '11px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Monitor color="#65dba5" size={23} />
+                  <div>
+                    <b>Windows Standalone Mode</b>
+                    <p className="muted" style={{ margin: '4px 0' }}>Local backend accessible only from this PC.</p>
+                  </div>
+                </div>
+                <p style={{ color: '#9ca9a3', fontSize: '12px', marginTop: '13px' }}>Address: http://127.0.0.1:4100</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '9px', marginTop: '14px' }}>
+                  <button className="secondary" disabled={modeBusy || serverRunning} onClick={() => startLocalServer('standalone')}><Power size={16} /> Start Standalone</button>
+                  <button className="secondary" disabled={modeBusy || !serverRunning} onClick={stopLocalServer}><X size={16} /> Stop Backend</button>
+                </div>
+              </div>
+            )}
+
+            {mode === 'server' && (
+              <div style={{ padding: '16px', border: '1px solid #35423e', borderRadius: '11px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Server color="#65dba5" size={23} />
+                  <div><b>Windows Server Mode</b><p className="muted" style={{ margin: '4px 0' }}>Allow other devices on your network to reach this PC.</p></div>
+                </div>
+                <div style={{ marginTop: '14px', padding: '11px', borderRadius: '8px', background: '#30271b', color: '#f0c879', fontSize: '12px', lineHeight: 1.6 }}>
+                  Warning: This binds the backend to all network interfaces. Only enable it on a trusted network. Windows Firewall may ask for permission.
+                </div>
+                <p style={{ color: '#9ca9a3', fontSize: '12px', marginTop: '13px' }}>Port: 4100</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '9px', marginTop: '14px' }}>
+                  <button className="secondary" disabled={modeBusy || serverRunning} onClick={() => startLocalServer('server')}><Power size={16} /> Start Server</button>
+                  <button className="secondary" disabled={modeBusy || !serverRunning} onClick={stopLocalServer}><X size={16} /> Stop Server</button>
+                </div>
+              </div>
+            )}
+
+            {mode === 'client' && (
+              <div style={{ padding: '16px', border: '1px solid #35423e', borderRadius: '11px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Globe color="#65dba5" size={23} />
+                  <div><b>Windows Client Mode</b><p className="muted" style={{ margin: '4px 0' }}>Connect to a remote Unified Cloud server.</p></div>
+                </div>
+                <label style={{ display: 'block', color: '#b8c5be', fontSize: '13px', margin: '16px 0 8px' }}>Server URL</label>
+                <input value={clientUrl} onChange={(event) => { setClientUrl(event.target.value); setClientConnected(false); }}
+                  placeholder="https://your-server.example.com"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '12px', background: '#101519', color: '#f2f5f4', border: '1px solid #3c4943', borderRadius: '8px', outline: 'none' }} />
+                <button className="secondary" disabled={modeBusy || !clientUrl.trim()} onClick={connectClient} style={{ marginTop: '12px' }}><Wifi size={16} /> Test & Connect</button>
+                {clientConnected && <p style={{ color: '#65dba5', fontSize: '12px', marginTop: '12px' }}><Wifi size={14} /> Connected: {clientServerName}</p>}
+                <p style={{ color: '#9ca9a3', fontSize: '11px', marginTop: '10px' }}>This tests server health only. File sync and remote account operations are not connected yet.</p>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '18px', padding: '12px', background: '#101519', borderRadius: '9px' }}>
+              {serverRunning ? <Wifi size={17} color="#43c98c" /> : <WifiOff size={17} color="#d69b48" />}
+              <span style={{ fontSize: '12px', color: '#c4cfca', flex: 1 }}>{localStatusText}</span>
+              <button onClick={refreshLocalStatus} disabled={modeBusy} title="Refresh local backend status"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid #35423e', borderRadius: '7px', color: '#c4cfca', padding: '7px 10px', cursor: 'pointer' }}>
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
+            {modeBusy && <p style={{ color: '#9ca9a3', fontSize: '12px', marginTop: '12px' }}>Please wait, processing your request...</p>}
+            {modeMessage && <p style={{ color: '#65dba5', fontSize: '12px', marginTop: '12px' }}>{modeMessage}</p>}
+            {modeError && <p style={{ color: '#f08b82', fontSize: '12px', marginTop: '12px' }}>{modeError}</p>}
+          </section>
+        )}
+
+        {page === 'Home' && (
+          <>
+            <section className="storage-card">
+              <div>
+                <div className="eyebrow">CONNECTED CLOUD ACCOUNTS</div>
+                <div className="storage-number">{accounts.length} account(s)</div>
+                <p className="muted">Your connected cloud accounts.</p>
+              </div>
+              <div className="storage-art"><HardDrive size={48} /></div>
+              <div className="storage-foot">
+                <span>Google Drive and other providers</span>
+                <span className="status"><i /> {accountsLoading ? 'Loading' : 'Account status'}</span>
+              </div>
+            </section>
+
+            <section className="section-head">
+              <div><h2>Quick access</h2><p className="muted">Browse your unified library</p></div>
+              <button className="text-button" onClick={() => openPage('My Files')}>View all <span>→</span></button>
+            </section>
+
+            <div className="quick-grid">
+              <div className="quick-card" role="button" tabIndex={0} onClick={() => openPage('My Files')}>
+                <div className="tile green"><Folder /></div><b>My Files</b><small>All folders and files</small>
+              </div>
+              <div className="quick-card" role="button" tabIndex={0} onClick={() => openPage('Gallery')}>
+                <div className="tile teal"><Images /></div><b>Gallery</b><small>Photos and videos</small>
+              </div>
+              <div className="quick-card" role="button" tabIndex={0} onClick={() => openPage('Recent')}>
+                <div className="tile amber"><Clock3 /></div><b>Recent</b><small>Recently accessed</small>
+              </div>
+            </div>
+
+            <section className="section-head recent-head">
+              <div><h2>Connected accounts</h2><p className="muted">Accounts linked to this device</p></div>
+              <button className="text-button" onClick={() => { setProfileOpen(true); void loadAccounts(); }}>Manage clouds</button>
+            </section>
+
+            {accounts.length > 0 ? (
+              <div className="empty">
+                <div className="empty-icon"><Cloud size={28} /></div>
+                <b>{accounts.length} cloud account(s) connected</b>
+                <p>{accounts.map((account) => account.displayLabel).join(', ')}</p>
+                <button className="secondary" onClick={() => openPage('My Files')}><Folder size={16} /> Browse files</button>
+              </div>
+            ) : (
+              <div className="empty">
+                <div className="empty-icon"><Cloud size={28} /></div>
+                <b>Your cloud library is waiting</b>
+                <p>Connect Google Drive and MEGA to get started.</p>
+                <button className="secondary" onClick={() => { setProfileOpen(true); setExpandedProvider(null); }}>
+                  <Plus size={16} /> Connect a cloud account
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {(page === 'My Files' || page === 'Gallery' || page === 'Recent') && (
+          <section style={{ marginTop: '20px' }}>
+            {page === 'My Files' && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '14px', fontSize: '13px' }}>
+                <button className="text-button" onClick={() => navigateToFolder(-1)}>My Files</button>
+                {folderPath.map((folder, index) => (
+                  <span key={`${folder.provider}:${folder.accountId}:${folder.id}`} style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ color: '#82918a' }}>/</span>
+                    <button className="text-button" onClick={() => navigateToFolder(index)}>{folder.name}</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="section-head">
+              <div>
+                <h2>{page === 'Gallery' ? 'Photos and videos' : page === 'Recent' ? 'Recent files' : 'All cloud files'}</h2>
+                <p className="muted">{page === 'My Files' ? 'Files from all connected Google Drive and MEGA accounts.' : 'Files from your selected cloud account.'}</p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {page === 'My Files' && <button className="secondary" onClick={() => void createFolder()}><Folder size={15} /> New folder</button>}
+                <button className="secondary" disabled={filesLoading} onClick={() => void loadFiles(page === 'My Files' ? (currentFolderAccountId ?? undefined) : undefined, page === 'My Files' ? (currentFolderId ?? 'root') : undefined)}><RefreshCw size={15} /> Refresh</button>
+                <button className="secondary" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> Upload</button>
+              </div>
+            </div>
+
+            {uploadMessage && (
+              <p style={{ color: '#9ca9a3', fontSize: '13px' }}>{uploadMessage}</p>
+            )}
+
+            {transfers.length > 0 && (
+              <div style={{
+                marginBottom: '18px',
+                padding: '16px',
+                background: '#171d22',
+                border: '1px solid #303b37',
+                borderRadius: '12px',
+                display: 'grid',
+                gap: '14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <div>
+                    <b style={{ fontSize: '15px' }}>Transfer Manager</b>
+                    <p style={{ color: '#9ca9a3', fontSize: '12px', margin: '4px 0 0' }}>
+                      {transfers.filter((item) => item.status === 'completed').length} completed
+                      {' / '}
+                      {transfers.filter((item) => item.status === 'uploading' || item.status === 'paused' || item.status === 'queued').length} active
+                    </p>
+                  </div>
+                  <button
+                    className="secondary"
+                    onClick={() => setTransfers((previous) => previous.filter(
+                      (item) => item.status === 'uploading' || item.status === 'paused' || item.status === 'queued'
+                    ))}
+                  >
+                    Clear finished
+                  </button>
+                </div>
+
+                {transfers.map((transfer) => (
+                  <div key={transfer.id} style={{
+                    padding: '12px',
+                    border: '1px solid #303b37',
+                    borderRadius: '9px',
+                    display: 'grid',
+                    gap: '9px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <b title={transfer.name} style={{
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontSize: '13px',
+                      }}>{transfer.direction === 'download' ? '↓ ' : '↑ '}{transfer.name}</b>
+                      <span style={{
+                        fontSize: '12px',
+                        color: transfer.status === 'completed' ? '#65dba5'
+                          : transfer.status === 'failed' ? '#f0c879'
+                          : transfer.status === 'cancelled' ? '#9ca9a3'
+                          : '#c4cfca',
+                      }}>{transfer.status.toUpperCase()}</span>
+                    </div>
+
+                    <div style={{
+                      height: '7px',
+                      background: '#303b37',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${transfer.progress}%`,
+                        background: transfer.status === 'failed' ? '#d99a54' : '#65dba5',
+                        borderRadius: '10px',
+                        transition: 'width 180ms ease',
+                      }} />
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '6px',
+                      color: '#9ca9a3',
+                      fontSize: '12px',
+                    }}>
+                      <span>{transfer.progress}% · {formatFileSize(String(transfer.uploadedBytes))} / {formatFileSize(String(transfer.size))}</span>
+                      <span>
+                        {transfer.status === 'uploading'
+                          ? `${transfer.speed >= 1024 * 1024
+                              ? (transfer.speed / (1024 * 1024)).toFixed(2) + ' MB/s'
+                              : (transfer.speed / 1024).toFixed(0) + ' KB/s'} · ETA ${Math.floor(transfer.eta / 60)}m ${transfer.eta % 60}s`
+                          : transfer.status === 'paused' ? 'Paused'
+                          : transfer.status === 'completed' ? (transfer.direction === 'download' ? 'Download complete' : 'Upload complete')
+                          : transfer.status === 'queued' ? 'Waiting to start'
+                          : transfer.status === 'cancelled' ? 'Cancelled'
+                          : (transfer.direction === 'download' ? 'Download failed' : 'Upload failed')}
+                      </span>
+                    </div>
+
+                    {transfer.error && (
+                      <p style={{ color: '#f0c879', fontSize: '12px', margin: 0 }}>{transfer.error}</p>
+                    )}
+
+                    {(transfer.status === 'uploading' || transfer.status === 'paused' || transfer.status === 'queued') && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {transfer.status === 'paused'
+                          ? <button className="secondary" onClick={() => void resumeTransfer(transfer.id)}>Resume</button>
+                          : <button className="secondary" onClick={() => void pauseTransfer(transfer.id)}>Pause</button>}
+                        <button className="secondary" onClick={() => void cancelTransfer(transfer.id)}>Cancel</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {filesLoading && <div className="empty"><RefreshCw size={24} /><p>Loading files from connected cloud accounts...</p></div>}
+            {!filesLoading && filesError && <div className="empty"><Cloud size={28} /><b>Could not load files</b><p>{filesError}</p><button className="secondary" onClick={() => void loadAccounts()}>Refresh accounts</button></div>}
+
+            {!filesLoading && !filesError && visibleFiles.length === 0 && (
+              <div className="empty">
+                <div className="empty-icon"><Folder size={28} /></div>
+                <b>{files.length === 0 ? 'No files found in connected accounts' : 'No matching files'}</b>
+                <p>{files.length === 0 ? 'Your connected Google Drive and MEGA accounts have no files in this location.' : 'Try another search term.'}</p>
+                <button className="secondary" onClick={() => fileInputRef.current?.click()}><Upload size={16} /> Upload a file</button>
+              </div>
+            )}
+
+            {!filesLoading && !filesError && visibleFiles.length > 0 && (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {visibleFiles.map((file) => (
+                  <div
+                    key={`${file.provider}:${file.accountId}:${file.id}`}
+                    onDoubleClick={() => void openFile(file)}
+                    title="Double-click to open this file"
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '13px', background: '#171d22', border: '1px solid #303b37', borderRadius: '10px', cursor: 'default' }}
+                  >
+                    <span style={{ color: '#65dba5' }}>{fileIcon(file)}</span>
+                    <div
+                      onClick={() => void openFile(file)}
+                      style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+                    >
+                      <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>{file.name}</b>
+                      <small style={{ color: '#9ca9a3' }}>
+                        {formatFileSize(file.size)}{file.modifiedTime ? ` · ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
+                        {' · '}{file.provider === 'GOOGLE_DRIVE' ? 'Google Drive' : file.provider === 'MEGA' ? 'MEGA' : file.provider}
+                        {' · '}{accounts.find((account) => account.id === file.accountId)?.displayLabel ?? 'Cloud account'}
+                      </small>
+                    </div>
+                    {file.provider === 'GOOGLE_DRIVE' && file.webViewLink && (
+                      <button title="Open in Google Drive" onClick={() => void openGoogleDrive(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                        <ExternalLink size={17} />
+                      </button>
+                    )}
+                    {(file.provider === 'GOOGLE_DRIVE' || file.provider === 'MEGA') && !file.isFolder && file.mimeType !== 'application/vnd.google-apps.folder' && (
+                      <>
+                        <button title="Download file" onClick={() => void downloadFile(file)} style={{ background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}>
+                          <Download size={17} />
+                        </button>
+                        <button title="Open preview" onClick={() => void openFile(file)} style={{ background: 'transparent', border: 0, color: '#c4cfca', cursor: 'pointer' }}>
+                          <Maximize2 size={17} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {page === 'Trash' && (
+          <section className="empty">
+            <div className="empty-icon"><Trash2 size={28} /></div>
+            <b>Trash integration is not ready yet</b>
+            <p>Deleted-file management will be connected in a later step.</p>
+          </section>
+        )}
+
+        <footer>
+          Unified Cloud <span>Windows modes development preview</span>
+        </footer>
+      </main>
+
+      {(viewerLoading || viewerError || viewer) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="File viewer"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeViewer();
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 5000,
+            background: 'rgba(0,0,0,0.82)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '18px',
+          }}
+        >
+          <div style={{
+            width: 'min(1100px, 96vw)',
+            height: 'min(800px, 94vh)',
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#171d22',
+            border: '1px solid #35423e',
+            borderRadius: '14px',
+            overflow: 'hidden',
+            boxShadow: '0 20px 70px rgba(0,0,0,0.55)',
+          }}>
+            <div style={{
+              minHeight: '58px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '0 15px',
+              borderBottom: '1px solid #35423e',
+              color: '#f2f5f4',
+            }}>
+              <button
+                onClick={closeViewer}
+                title="Close viewer"
+                style={{ display: 'flex', alignItems: 'center', background: 'transparent', border: 0, color: '#c4cfca', cursor: 'pointer' }}
+              >
+                <ArrowLeft size={19} />
+              </button>
+              <b style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px' }}>
+                {viewer?.fileName || 'Opening file...'}
+              </b>
+              {viewer && (
+                <>
+                  <button
+                    onClick={() => void downloadViewerFile()}
+                    title="Download file"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid #35423e', borderRadius: '7px', padding: '7px 10px', color: '#c4cfca', cursor: 'pointer' }}
+                  >
+                    <Download size={16} /> <span style={{ fontSize: '12px' }}>Download</span>
+                  </button>
+                  {viewer.file.provider === 'GOOGLE_DRIVE' && viewer.file.webViewLink && (
+                    <button
+                      onClick={() => void openGoogleDrive(viewer.file)}
+                      title="Open in Google Drive"
+                      style={{ display: 'flex', alignItems: 'center', background: 'transparent', border: 0, color: '#65dba5', cursor: 'pointer' }}
+                    >
+                      <ExternalLink size={18} />
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                onClick={closeViewer}
+                title="Close"
+                style={{ display: 'flex', alignItems: 'center', background: 'transparent', border: 0, color: '#c4cfca', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#101519' }}>
+              {viewerLoading && (
+                <div className="empty" style={{ height: '100%', boxSizing: 'border-box' }}>
+                  <RefreshCw size={28} />
+                  <b>Opening file...</b>
+                  <p>Downloading preview from your cloud provider.</p>
+                </div>
+              )}
+              {viewerError && (
+                <div className="empty" style={{ height: '100%', boxSizing: 'border-box' }}>
+                  <File size={35} />
+                  <b>Could not open file</b>
+                  <p>{viewerError}</p>
+                  <button className="secondary" onClick={closeViewer}>Close</button>
+                </div>
+              )}
+              {!viewerLoading && viewer && renderViewerContent()}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode><App /></React.StrictMode>
+);
+
+
+
+
